@@ -21,6 +21,7 @@
 #define VIEWDIALOG_HPP
 
 #include "StelDialog.hpp"
+#include "ScmAddPolygonDialog.hpp"
 
 #include <QObject>
 #include <QTimer>
@@ -36,6 +37,7 @@ class TonemappingDialog;
 class GreatRedSpotDialog;
 class ConfigureDSOColorsDialog;
 class ConfigureOrbitColorsDialog;
+class ScmAddPolygonDialog;
 
 class ViewDialog : public StelDialog
 {
@@ -84,6 +86,7 @@ public slots:
 	void showGreatRedSpotDialog();
 	void showConfigureDSOColorsDialog();
 	void showConfigureOrbitColorsDialog();
+	void showAddPolygonDialog();
 
 private slots:
 	void populatePlanetMagnitudeAlgorithmsList();
@@ -127,6 +130,7 @@ private:
 	GreatRedSpotDialog * greatRedSpotDialog;
 	ConfigureDSOColorsDialog * configureDSOColorsDialog;
 	ConfigureOrbitColorsDialog * configureOrbitColorsDialog;
+	ScmAddPolygonDialog * scmAddPolygonDialog;
 	QTimer hipsUpdateTimer;
 };
 

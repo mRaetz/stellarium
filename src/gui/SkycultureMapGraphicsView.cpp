@@ -1,21 +1,25 @@
 #include "SkycultureMapGraphicsView.hpp"
-#include "SkyculturePolygonItem.hpp"
+#include "ScmAddPolygonDialog.hpp"
 #include <qjsonarray.h>
 #include <qgraphicssvgitem.h>
+#include <qscrollbar.h>
+#include <QFileDialog>
 
 #include <QJsonObject>
 #include <QJsonDocument>
 
 SkycultureMapGraphicsView::SkycultureMapGraphicsView(QWidget *parent)
 	: QGraphicsView(parent)
-	, minYear(-2000)
-	, maxYear(2000)
+	, viewScrolling(false)
+	, firstShow(true)
 	, currentYear(0)
+	, mouseLastXY(0, 0)
 	, oldSkyCulture("")
 {
 	QGraphicsScene *scene = new QGraphicsScene(this);
 	// scene->setItemIndexMethod(QGraphicsScene::NoIndex); // noIndex better when adding / removing many items
 	setScene(scene);
+	setInteractive(true);
 
 	setRenderHint(QPainter::Antialiasing); // maybe unnecessary for this project
 	setTransformationAnchor(AnchorUnderMouse);
@@ -23,12 +27,13 @@ SkycultureMapGraphicsView::SkycultureMapGraphicsView(QWidget *parent)
 	// when drawing the basemap picture it's important to zoom out far enough (otherwise the cultureListWidget Layout will be compressed)
 	//scale(qreal(0.3), qreal(0.3)); // default transformation (zoom)
 
-	QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+	setCursor(Qt::CrossCursor);
 	setMouseTracking(true);
 
-	setDragMode(QGraphicsView::ScrollHandDrag);
+	//setDragMode(QGraphicsView::NoDrag);
 	setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
 	show();
 
 	// set up QTimelines for smooth zoom on culture selection through public 'selectCulture' slot
@@ -38,9 +43,9 @@ SkycultureMapGraphicsView::SkycultureMapGraphicsView(QWidget *parent)
 	zoomToDefaultTimer.setUpdateInterval(20);
 	zoomOnTargetTimer.setUpdateInterval(20);
 
-	connect(&zoomToDefaultTimer, SIGNAL(valueChanged(qreal)), SLOT(zoomToDefault(qreal)));
-	connect(&zoomToDefaultTimer, SIGNAL(finished()), &zoomOnTargetTimer, SLOT(start()));
-	connect(&zoomOnTargetTimer, SIGNAL(valueChanged(qreal)), SLOT(zoomOnTarget(qreal)));
+	connect(&zoomToDefaultTimer, &QTimeLine::valueChanged, this, &SkycultureMapGraphicsView::zoomToDefault);
+	connect(&zoomToDefaultTimer, &QTimeLine::finished, &zoomOnTargetTimer, &QTimeLine::start);
+	connect(&zoomOnTargetTimer, &QTimeLine::valueChanged, this, &SkycultureMapGraphicsView::zoomOnTarget);
 
 	// add items (transfer to dedicated function later)
 
@@ -93,7 +98,7 @@ SkycultureMapGraphicsView::SkycultureMapGraphicsView(QWidget *parent)
 	// QGraphicsPixmapItem *baseMap = scene->addPixmap(QPixmap(":/graphicGui/miscWorldMap.jpg"));
 	// baseMap->setTransformationMode(Qt::SmoothTransformation);
 
-	QGraphicsSvgItem *baseMap = new QGraphicsSvgItem(":/graphicGui/baseMap_compressed.svgz");
+	QGraphicsSvgItem *baseMap = new QGraphicsSvgItem(":/graphicGui/gen01_capPop500k_wAntarctica_02.svg");
 	scene->addItem(baseMap);
 	scene->setSceneRect(- baseMap->boundingRect().width() * 0.75, - baseMap->boundingRect().height() * 0.5, baseMap->boundingRect().width() * 2.5, baseMap->boundingRect().height() * 2);
 	qInfo() << "basemap width = " << baseMap->boundingRect().width() << " and height = " << baseMap->boundingRect().height();
@@ -103,98 +108,122 @@ SkycultureMapGraphicsView::SkycultureMapGraphicsView(QWidget *parent)
 	//scene->addRect(0.0, 0.0, 500.0, 500.0, QPen(Qt::yellow), QBrush(Qt::blue));
 	//scene->addRect(250.0, 250.0, 500.0, 500.0, QPen(Qt::yellow), QBrush(QColor(255, 0, 0, 100)));
 
-	SkyculturePolygonItem *lokono_early = new SkyculturePolygonItem("Lokono", 550, 1560);
-	lokono_early->setPolygon(QPolygonF(QList<QPoint>{QPoint(800.0, 800.0), QPoint(840.0, 800.0), QPoint(880.0, 840.0), QPoint(880.0, 880.0),
-												  QPoint(840.0, 920.0), QPoint(800.0, 920.0), QPoint(760.0, 880.0), QPoint(760.0, 840.0)}));
+	// SkyculturePolygonItem *lokono_early = new SkyculturePolygonItem("Lokono", 550, 1560);
+	// lokono_early->setPolygon(QPolygonF(QList<QPoint>{QPoint(800.0, 800.0), QPoint(840.0, 800.0), QPoint(880.0, 840.0), QPoint(880.0, 880.0),
+	// 											  QPoint(840.0, 920.0), QPoint(800.0, 920.0), QPoint(760.0, 880.0), QPoint(760.0, 840.0)}));
 
-	SkyculturePolygonItem *lokono_late = new SkyculturePolygonItem("Lokono", 1561, 2014);
-	lokono_late->setPolygon(QPolygonF(QList<QPoint>{QPoint(900.0, 500.0), QPoint(940.0, 500.0), QPoint(980.0, 540.0), QPoint(980.0, 580.0),
-													 QPoint(940.0, 620.0), QPoint(900.0, 620.0), QPoint(860.0, 580.0), QPoint(860.0, 540.0)}));
+	// SkyculturePolygonItem *lokono_late = new SkyculturePolygonItem("Lokono", 1561, 2014);
+	// lokono_late->setPolygon(QPolygonF(QList<QPoint>{QPoint(900.0, 500.0), QPoint(940.0, 500.0), QPoint(980.0, 540.0), QPoint(980.0, 580.0),
+	// 												 QPoint(940.0, 620.0), QPoint(900.0, 620.0), QPoint(860.0, 580.0), QPoint(860.0, 540.0)}));
 
-	SkyculturePolygonItem *aztec = new SkyculturePolygonItem("Aztekisch", 1000, 1200);
+	// SkyculturePolygonItem *aztec = new SkyculturePolygonItem("Aztekisch", 1000, 1200);
 
-	SkyculturePolygonItem *tupi_test = new SkyculturePolygonItem("Tupi-Guarani", -100, 100);
-	auto tupiPolyList = QList<QPointF>();
+	// SkyculturePolygonItem *tupi_test = new SkyculturePolygonItem("Tupi-Guarani", -100, 100);
+	// auto tupiPolyList = QList<QPointF>();
 
-	// load culture Polygon from (geo)JSON
+	// // load culture Polygon from (geo)JSON
 
-	const QString filePath = StelFileMgr::findFile("skycultures/tupi/tupi_coords.geojson");
-	if (filePath.isEmpty())
-	{
-		qCritical() << "Failed to * find *" << " [tupi polygon coordinate] " << "file in sky culture directory";
-	}
-	else
-	{
-		QFile file(filePath);
-		if (!file.open(QFile::ReadOnly))
-		{
-			qCritical() << "Failed to * open *" << " [tupi polygon coordinate] " << "file in sky culture directory";
-		}
-		else
-		{
-			const auto jsonText = file.readAll();
-			if (jsonText.isEmpty())
-			{
-				qCritical() << "Failed to read data from" << " [tupi polygon coordinate] " << "file in sky culture directory";
-			}
-			else
-			{
-				QJsonParseError error;
-				const auto jsonDoc = QJsonDocument::fromJson(jsonText, &error);
+	// const QString filePath = StelFileMgr::findFile("skycultures/tupi/tupi_coords.geojson");
+	// if (filePath.isEmpty())
+	// {
+	// 	qCritical() << "Failed to * find *" << " [tupi polygon coordinate] " << "file in sky culture directory";
+	// }
+	// else
+	// {
+	// 	QFile file(filePath);
+	// 	if (!file.open(QFile::ReadOnly))
+	// 	{
+	// 		qCritical() << "Failed to * open *" << " [tupi polygon coordinate] " << "file in sky culture directory";
+	// 	}
+	// 	else
+	// 	{
+	// 		const auto jsonText = file.readAll();
+	// 		if (jsonText.isEmpty())
+	// 		{
+	// 			qCritical() << "Failed to read data from" << " [tupi polygon coordinate] " << "file in sky culture directory";
+	// 		}
+	// 		else
+	// 		{
+	// 			QJsonParseError error;
+	// 			const auto jsonDoc = QJsonDocument::fromJson(jsonText, &error);
 
-				if (error.error != QJsonParseError::NoError)
-				{
-					qCritical().nospace() << "Failed to parse " << " [tupi polygon coordinate] " << " from sky culture directory " << ": " << error.errorString();
-				}
-				else
-				{
-					if (!jsonDoc.isObject())
-					{
-						qCritical() << "Failed to find the expected JSON structure in" << " [tupi polygon coordinate] " << " from sky culture directory";
-					}
-					else
-					{
-						const auto data = jsonDoc.object();
-						qInfo() << "json object keys: " << data.keys();
-						qInfo() << "data[features].toString(): " << data["features"].toString();
-						qInfo() << "data[features][type].toString(): " << data["features"]["type"].toString();
-						const auto feattures = data["features"];
-						if (data["features"].isArray())
-						{
-							auto featureArray = data["features"].toArray(); // auto = QJasonArray --> header inlcude
-							auto geoArray = featureArray[0].toObject().value("geometry").toArray();
-							qInfo() << "geoArray size: " << geoArray.size();
-							qInfo() << "geoArray[0]: " << geoArray[0];
+	// 			if (error.error != QJsonParseError::NoError)
+	// 			{
+	// 				qCritical().nospace() << "Failed to parse " << " [tupi polygon coordinate] " << " from sky culture directory " << ": " << error.errorString();
+	// 			}
+	// 			else
+	// 			{
+	// 				if (!jsonDoc.isObject())
+	// 				{
+	// 					qCritical() << "Failed to find the expected JSON structure in" << " [tupi polygon coordinate] " << " from sky culture directory";
+	// 				}
+	// 				else
+	// 				{
+	// 					const auto data = jsonDoc.object();
+	// 					qInfo() << "json object keys: " << data.keys();
+	// 					qInfo() << "data[features].toString(): " << data["features"].toString();
+	// 					qInfo() << "data[features][type].toString(): " << data["features"]["type"].toString();
+	// 					const auto feattures = data["features"];
+	// 					if (data["features"].isArray())
+	// 					{
+	// 						auto featureArray = data["features"].toArray(); // auto = QJasonArray --> header inlcude
+	// 						auto geoArray = featureArray[0].toObject().value("geometry").toArray();
+	// 						qInfo() << "geoArray size: " << geoArray.size();
+	// 						qInfo() << "geoArray[0]: " << geoArray[0];
 
-							//tupi_test->setPolygon(QPolygonF(QList<QPoint>{QPoint(800.0, 800.0), QPoint(840.0, 800.0), QPoint(880.0, 840.0), QPoint(880.0, 880.0),
-							//												 QPoint(840.0, 920.0), QPoint(800.0, 920.0), QPoint(760.0, 880.0), QPoint(760.0, 840.0)}));
-							for(auto i : geoArray)
-							{
-								auto pointArray = i.toArray();
-								//qInfo() << "values: x = " << pointArray[0].toDouble() << " and y = " << pointArray[1].toDouble();
-								tupiPolyList.append(QPointF(pointArray[0].toDouble(), pointArray[1].toDouble()));
-							}
-							//qInfo() << "featureArray size: " << featureArray;
-							//qInfo() << "featureArray coordinates: " << featureArray[0].toObject().value("geometry").toArray().size();
-						}
-						//qInfo() << "features len: " << data["features"]["type"].toString().length();
-						//qInfo() << "features[id].toString: " << data["features"].toString();
-					}
-				}
-			}
-		}
-	}
+	// 						//tupi_test->setPolygon(QPolygonF(QList<QPoint>{QPoint(800.0, 800.0), QPoint(840.0, 800.0), QPoint(880.0, 840.0), QPoint(880.0, 880.0),
+	// 						//												 QPoint(840.0, 920.0), QPoint(800.0, 920.0), QPoint(760.0, 880.0), QPoint(760.0, 840.0)}));
+	// 						for(auto i : geoArray)
+	// 						{
+	// 							auto pointArray = i.toArray();
+	// 							//qInfo() << "values: x = " << pointArray[0].toDouble() << " and y = " << pointArray[1].toDouble();
+	// 							tupiPolyList.append(QPointF(pointArray[0].toDouble(), pointArray[1].toDouble()));
+	// 						}
+	// 						//qInfo() << "featureArray size: " << featureArray;
+	// 						//qInfo() << "featureArray coordinates: " << featureArray[0].toObject().value("geometry").toArray().size();
+	// 					}
+	// 					//qInfo() << "features len: " << data["features"]["type"].toString().length();
+	// 					//qInfo() << "features[id].toString: " << data["features"].toString();
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-	tupi_test->setPolygon(QPolygonF(convertLatLonToMeter(tupiPolyList, baseMap->boundingRect().width(), baseMap->boundingRect().height())));
-	scene->addItem(tupi_test);
+	// tupi_test->setPolygon(QPolygonF(convertLatLonToMeter(tupiPolyList, baseMap->boundingRect().width(), baseMap->boundingRect().height())));
+	// scene->addItem(tupi_test);
 
-	scene->addItem(lokono_early);
-	scene->addItem(lokono_late);
-	scene->addItem(aztec);
+	scene->addItem(currentCapturePolygon);
+	scene->addItem(previewCapturePath);
+
+	// scene->addItem(lokono_early);
+	// scene->addItem(lokono_late);
+	// scene->addItem(aztec);
 
 	// workaround needed to preserve the correct component sizes (without the 'scale' operation the culturesListWidget is being squished and the culture names are not readable)
-	scale(0.18, 0.18); // empirically determined value at which the list reaches its preferred width
-	smoothFitInView(baseMap->boundingRect()); // reusing the smooth zoom feature from culture selection, in theory only the first part (zoom to default) is needed
+	//scale(0.2, 0.2); // empirically determined value
+	//smoothFitInView(baseMap->boundingRect()); // reusing the smooth zoom feature from culture selection, in theory only the first part (zoom to default) is needed
+	targetRect = baseMap->boundingRect();
+
+	qInfo() << "ende Map Constructor!";
+
+	//tempDialog = new ScmAddPolygonDialog();
+}
+
+void SkycultureMapGraphicsView::drawMapContent(const QString &baseMap)
+{
+	// delete all items
+	// evaluate projection
+	// load polygon, reproject polygon, add polyogn to map
+	// extra klasse ---> object mit function QPolygonF wgsToMap(const QPolygonF poly)
+	if (baseMap == "WGS84_3857")
+	{
+
+	}
+	else if (baseMap == "WGS84_3857")
+	{
+
+	}
 }
 
 void SkycultureMapGraphicsView::wheelEvent(QWheelEvent *event)
@@ -221,67 +250,115 @@ void SkycultureMapGraphicsView::wheelEvent(QWheelEvent *event)
 		qInfo() << "obj: " << pol << " und name: " << pol->getSkycultureId() << " und startZeit: " << pol->getStartTime() << " und endZeit: " << pol->getEndTime();
 	}
 
-	scaleView(pow(2.0, event->angleDelta().y() / 240.0)); // faster scrolling = faster zoom
-}
-
-void SkycultureMapGraphicsView::mouseMoveEvent(QMouseEvent *event)
-{
-
-	// if(event->buttons() == Qt::LeftButton)
-	// {
-	//    //viewport()->setCursor(Qt::ClosedHandCursor); // QGuiApplication::overrideCursor()
-	//    QGuiApplication::setOverrideCursor(Qt::ClosedHandCursor);
-	// }
-	// else
-	// {
-	//    QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
-	//    //viewport()->setCursor(Qt::ArrowCursor);
-	// }
-
-	QGraphicsView::mouseMoveEvent(event);
-}
-
-void SkycultureMapGraphicsView::mousePressEvent(QMouseEvent *event)
-{
-	qInfo() << "current mouse pos --> raw: " << event->pos() << " mapToScene: " << mapToScene(event->pos());
-	qInfo() << "current transformation" << transform();
-
-	// safe the currently selected skyculture before de-selecting
-	if(scene()->selectedItems().length() > 0)
+	qreal zoomFactor = pow(2.0, event->angleDelta().y() / 240.0);
+	qreal qgsZoomFactor = 1.0 + ( 1.01 - 1.0 ) / 120.0 * std::fabs( event->angleDelta().y() );
+	qreal ctrZoomFactor = 0.0;
+	if ( event->modifiers() & Qt::ControlModifier )
 	{
-		const QString previousCulture = qgraphicsitem_cast<SkyculturePolygonItem *>(scene()->selectedItems()[0])->getSkycultureId();
+		//holding ctrl while wheel zooming results in a finer zoom
+		ctrZoomFactor = 1.0 + ( zoomFactor - 1.0 ) / 15.0;
+		scaleView(ctrZoomFactor);
+		qInfo() << "factor: " << zoomFactor << " vs. qzoomfactor: " << qgsZoomFactor << " vs. ctrlZoomfactor: " << ctrZoomFactor;
+		return;
 	}
 
-	// de-select all graphic items present in the scene so the cursor can be set for dragging
-	scene()->clearSelection();
-
-	QGraphicsView::mousePressEvent(event);
-
-	// if no item is selected (no polygon is clicked) set the right cursor for drag-mode
-	if(scene()->selectedItems().length() == 0)
-	{
-		QGuiApplication::setOverrideCursor(Qt::ClosedHandCursor);
-	}
-	else
-	{
-		// get the skyculture identifier (QString) of the current selected SkyculturePolygonItem
-		const QString currentSkyCulture = qgraphicsitem_cast<SkyculturePolygonItem *>(scene()->selectedItems()[0])->getSkycultureId();
-
-		// if the current culture is the same as before --> do not emit the signal so that the skyCulture isn't updated unnecessarily
-		if(currentSkyCulture != oldSkyCulture)
-		{
-			// emit the current skyCulture, so viewDialog can handle the change
-			emit cultureSelected(currentSkyCulture);
-			oldSkyCulture = currentSkyCulture;
-		}
-	}
+	scaleView(zoomFactor); // faster scrolling = faster zoom
 }
 
-void SkycultureMapGraphicsView::mouseReleaseEvent(QMouseEvent *event)
-{
-	QGraphicsView::mouseReleaseEvent(event);
+// void SkycultureMapGraphicsView::mouseMoveEvent(QMouseEvent *event)
+// {
 
-	QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+// 	// if(event->buttons() == Qt::LeftButton)
+// 	// {
+// 	//    //viewport()->setCursor(Qt::ClosedHandCursor); // QGuiApplication::overrideCursor()
+// 	//    QGuiApplication::setOverrideCursor(Qt::ClosedHandCursor);
+// 	// }
+// 	// else
+// 	// {
+// 	//    QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+// 	//    //viewport()->setCursor(Qt::ArrowCursor);
+// 	// }
+
+// 	QGraphicsView::mouseMoveEvent(event);
+// }
+
+// void SkycultureMapGraphicsView::mousePressEvent(QMouseEvent *event)
+// {
+// 	qInfo() << "current mouse pos --> raw: " << event->pos() << " mapToScene: " << mapToScene(event->pos());
+// 	qInfo() << "current transformation" << transform();
+
+// 	// safe the currently selected skyculture before de-selecting
+// 	if(scene()->selectedItems().length() > 0)
+// 	{
+// 		const QString previousCulture = qgraphicsitem_cast<SkyculturePolygonItem *>(scene()->selectedItems()[0])->getSkycultureId();
+// 	}
+
+// 	// de-select all graphic items present in the scene so the cursor can be set for dragging
+// 	scene()->clearSelection();
+
+// 	scene()->selectionChanged() // implement new deselection
+
+// 	QGraphicsView::mousePressEvent(event);
+
+// 	if ( event->button() == Qt::LeftButton )
+// 	{
+// 		qInfo() << "left press";
+// 		if( event->modifiers() & Qt::ShiftModifier )
+// 		{
+// 			qInfo() << "sky ---> shift Press";
+// 			viewScrolling = true;
+// 			QGuiApplication::setOverrideCursor(Qt::ClosedHandCursor);
+// 		}
+// 	}
+
+// 	// if no item is selected (no polygon is clicked) set the right cursor for drag-mode
+// 	if(scene()->selectedItems().length() == 0)
+// 	{
+// 		QGuiApplication::setOverrideCursor(Qt::ClosedHandCursor);
+// 	}
+// 	else
+// 	{
+// 		// get the skyculture identifier (QString) of the current selected SkyculturePolygonItem
+// 		const QString currentSkyCulture = qgraphicsitem_cast<SkyculturePolygonItem *>(scene()->selectedItems()[0])->getSkycultureId();
+
+// 		// if the current culture is the same as before --> do not emit the signal so that the skyCulture isn't updated unnecessarily
+// 		if(currentSkyCulture != oldSkyCulture)
+// 		{
+// 			// emit the current skyCulture, so viewDialog can handle the change
+// 			emit cultureSelected(currentSkyCulture);
+// 			oldSkyCulture = currentSkyCulture;
+// 		}
+// 	}
+// }
+
+// void SkycultureMapGraphicsView::mouseReleaseEvent( QMouseEvent *event )
+// {
+// 	setFocus();
+
+// 	QGraphicsView::mouseReleaseEvent(event);
+
+// 	if(viewScrolling)
+// 	{
+// 		viewScrolling = false;
+// 		QGuiApplication::restoreOverrideCursor();
+// 	}
+// }
+
+void SkycultureMapGraphicsView::showEvent(QShowEvent *event)
+{
+	// fit the base map to the current view when the widget is first shown
+	// (This cannot be done beforehand because the calculation is based on the current size of the viewPort.
+	// The viewPort is smaller than it should be until the first show because the widget is located on the stackedWidget in ViewDialog.
+	// The boolean firstShow is used so the map doesn't reset itself every time the user changes pages or closes the ViewDialog.)
+	if (firstShow)
+	{
+		qreal ratio = calculateScaleRatio(defaultRect.width(), defaultRect.height());
+		scale(ratio, ratio);
+		centerOn(defaultRect.center());
+		firstShow = false;
+	}
+
+	QGraphicsView::showEvent(event);
 }
 
 void SkycultureMapGraphicsView::scaleView(double factor)
@@ -289,7 +366,7 @@ void SkycultureMapGraphicsView::scaleView(double factor)
 	// calculate requested zoom before executing the zoom operation to limit the min / max zoom level
 	const double scaling = transform().scale(factor, factor).mapRect(QRectF(0, 0, 1, 1)).width();
 
-	if (scaling < 0.2 || scaling > 40.0) // min / max zoom level
+	if (scaling < 0.1 || scaling > 500.0) // scaling < min or scaling > max zoom level
 		return;
 
 	scale(factor, factor);
@@ -368,6 +445,35 @@ QList<QPointF> SkycultureMapGraphicsView::convertMeterToView(const QList<QPointF
 	return view_coords;
 }
 
+void SkycultureMapGraphicsView::selectAllCulturePolygon(const QString &skycultureId)
+{
+	for (const auto &item : scene()->items())
+	{
+		SkyculturePolygonItem *scPolyItem = qgraphicsitem_cast<SkyculturePolygonItem *>(item);
+		if (!scPolyItem)
+		{
+			continue;
+		}
+
+		scPolyItem->setSelectionState(false);
+
+		if (skycultureId == scPolyItem->getSkycultureId())
+		{
+			// items can't be selected when hidden
+			if (!scPolyItem->isVisible())
+			{
+				scPolyItem->setVisible(true);
+				scPolyItem->setSelectionState(true);
+				scPolyItem->setVisible(false);
+			}
+			else
+			{
+				scPolyItem->setSelectionState(true);
+			}
+		}
+	}
+}
+
 void SkycultureMapGraphicsView::selectCulture(const QString &skycultureId)
 {
 	qInfo() << "beginning of selectCulture!";
@@ -422,8 +528,9 @@ void SkycultureMapGraphicsView::selectCulture(const QString &skycultureId)
 	}
 
 	// select the new culture
-	scene()->clearSelection();
-	skyCulturePolygon->setSelected(true);
+	//scene()->clearSelection();
+	//skyCulturePolygon->setSelected(true);
+	selectAllCulturePolygon(skycultureId);
 
 	// start zoom (async?) to polygon and set TimeSlider to correct time (startTime of selected polygon?)
 	//fitInView(skyCulturePolygon->boundingRect(), Qt::KeepAspectRatio); --> funktioniert aber sehr passgenau
@@ -467,31 +574,74 @@ void SkycultureMapGraphicsView::updateTime(int year)
 	updateCultureVisibility();
 }
 
+void SkycultureMapGraphicsView::rotateMap(bool isRotated)
+{
+	if (isRotated)
+	{
+		rotate(180.0);
+	}
+	else
+	{
+		rotate(-180.0);
+	}
+}
+
+void SkycultureMapGraphicsView::changeProjection(bool isChanged)
+{
+	if (isChanged)
+	{
+		rotate(180.0);
+	}
+	else
+	{
+		rotate(-180.0);
+	}
+}
+
 void SkycultureMapGraphicsView::updateCultureVisibility()
 {
 	// iterate over all polygons --> if currentTime is between startTime and endTime show, else hide
-	for(auto *item : scene()->items()) {
+	for(const auto &item : scene()->items()) {
 		// cast generic QGraphicsItem to subclass SkyculturePolygonItem
-		SkyculturePolygonItem *scPolyItem = qgraphicsitem_cast<SkyculturePolygonItem *>(item);
+		// SkyculturePolygonItem *scPolyItem = qgraphicsitem_cast<SkyculturePolygonItem *>(item);
+
+		// // if cast was unsuccessful (item is not an SkyculturePolygonItem) --> look at the next item
+		// if(!scPolyItem)
+		// 	continue;
+
+		// // if the current year is between the start and end time of the polygon --> show (otherwise hide the item)
+		// if(scPolyItem->existsAtPointInTime(currentYear))
+		// {
+		// 	scPolyItem->setVisible(true);
+		// }
+		// else
+		// {
+		// 	scPolyItem->setVisible(false);
+		// }
+
+		PreviewPolygonItem *previewPItem = qgraphicsitem_cast<PreviewPolygonItem *>(item);
 
 		// if cast was unsuccessful (item is not an SkyculturePolygonItem) --> look at the next item
-		if(!scPolyItem)
+		if(!previewPItem)
 			continue;
 
 		// if the current year is between the start and end time of the polygon --> show (otherwise hide the item)
-		if(scPolyItem->existsAtPointInTime(currentYear))
+		if(previewPItem->existsAtPointInTime(currentYear))
 		{
-			scPolyItem->setVisible(true);
+			previewPItem->setVisible(true);
 		}
 		else
 		{
-			scPolyItem->setVisible(false);
+			previewPItem->setVisible(false);
 		}
 	}
 }
 
 void SkycultureMapGraphicsView::smoothFitInView(QRectF targetRect)
 {
+	// zoomOnTargetTimer needs to be stopped when the user selects another culture (starts a new zoom operation) while the old one hasnt finished
+	zoomOnTargetTimer.stop();
+
 	// update global variables so that they can be accessed by the slots 'zoomToDefault' and 'zoomOnTarget'
 	this->targetRect = targetRect;
 	this->startingRect = mapToScene(viewport()->rect()).boundingRect();
@@ -532,6 +682,7 @@ void SkycultureMapGraphicsView::zoomToDefault(qreal zoomFactor)
 	qreal ratio = calculateScaleRatio(width, height);
 
 	scale(ratio, ratio);
+	qInfo() << "zoom: " << zoomFactor << " ratio: " << ratio << " startBoundingrect: " << startingRect << " defaultBoundingrect: " << defaultRect;
 
 	// slowly move the center of the view to the new location
 	QEasingCurve centerEasing(QEasingCurve::Linear);
@@ -574,16 +725,291 @@ qreal SkycultureMapGraphicsView::calculateScaleRatio(qreal width, qreal height)
 	qreal xratio = viewRect.width() / sceneRect.width();
 	qreal yratio = viewRect.height() / sceneRect.height();
 
+	qInfo() << "caclScaleRatio ---> viewRect: " << viewRect << " sceneRect: " << sceneRect << " xRatio: " << xratio << " yRatio: " << yratio;
+
 	// keep original aspect ratio
 	return qMin(xratio, yratio);
 }
 
-void SkycultureMapGraphicsView::initializeTime()
-{
-	minYear = -2000;
-	maxYear = QDateTime::currentDateTime().date().year();
-	currentYear = maxYear;
+// ==================================================================================
 
-	emit(timeRangeChanged(minYear, maxYear));
-	emit(timeValueChanged(currentYear));
+void SkycultureMapGraphicsView::keyPressEvent( QKeyEvent *e )
+{
+	qInfo() << "Key code:" << e->key();
+	// delete the last point in the capture poylgon (except the very first one)
+	if (e->key() == Qt::Key_Backspace)
+	{
+		if (currentCapturePolygon->polygon().size() > 1)
+		{
+			QPolygonF newPoly = currentCapturePolygon->polygon();
+			newPoly.removeLast();
+
+			previewCapturePath->setLastPoint(newPoly.last());
+			currentCapturePolygon->setPolygon(newPoly);
+		}
+	}
+	// abort current capture ---> reset all points (including first one)
+	else if (e->key() == Qt::Key_Escape)
+	{
+		currentCapturePolygon->setPolygon(QPolygonF());
+
+		previewCapturePath->reset();
+	}
 }
+
+void SkycultureMapGraphicsView::mousePressEvent( QMouseEvent *e )
+{
+	//qInfo() << "src: " << e->source() << " type: " << e->type() << " Button code:" << e->button();
+
+	if ( e->button() == Qt::LeftButton )
+	{
+		if( e->modifiers() & Qt::ControlModifier )
+		{
+			qInfo() << "sky ---> ctrl Press";
+		}
+		else if( e->modifiers() & Qt::ShiftModifier )
+		{
+			qInfo() << "sky ---> shift Press";
+			viewScrolling = true;
+			QGuiApplication::setOverrideCursor(Qt::ClosedHandCursor);
+		}
+		else if( e->modifiers() & Qt::AltModifier )
+		{
+			qInfo() << "sky ---> alt Press";
+		}
+		else {
+			qInfo() << "sky ---> normal Press";
+			//https://github.com/qgis/QGIS/blob/master/src/gui/maptools/qgsmaptoolcapture.h
+		}
+	}
+	else if ( e->button() == Qt::RightButton )
+	{
+		qInfo() << "right press";
+	}
+	else
+	{
+		qInfo() << "else press";
+		// If doing a middle-button-click, followed by a right-button-click,
+		// cancel the pan or zoomRect action started above.
+	}
+
+	// if event is not accepted (mouse not over item) mouseReleaseEvent is not triggered
+	e->setAccepted(true);
+	// ===============================
+	// QGraphicsItem *currentTopmostMouseGrabberItem = itemAt(e->pos());
+
+	// // the item is either SkyculturePolygonItem or QGraphicsSvgItem (background) ---> try to cast it to SkyculturePolygonItem
+	// SkyculturePolygonItem *scPolyItem = qgraphicsitem_cast<SkyculturePolygonItem *>(currentTopmostMouseGrabberItem);
+	// if (scPolyItem)
+	// {
+	// 	qInfo() << "press Event is PolyItem";
+	// 	const QString currentSkyCulture = scPolyItem->getSkycultureId();
+
+	// 	// determine if a new culture is being selected
+	// 	if (oldSkyCulture != currentSkyCulture)
+	// 	{
+	// 		// if so, select all polygons of the respective culture, emit the cultureSelected Signal and set the oldSkyCulture to currentSkyCulture
+	// 		selectAllCulturePolygon(currentSkyCulture);
+	// 		emit cultureSelected(currentSkyCulture);
+	// 		oldSkyCulture = currentSkyCulture;
+	// 	}
+	// }
+}
+
+void SkycultureMapGraphicsView::mouseReleaseEvent( QMouseEvent *e )
+{
+	setFocus();
+	qInfo() << "pre release accepted? ---> " << e->isAccepted();
+	// use middle mouse button for panning, map tools won't receive any events in that case
+	qInfo() << "pre sky release! --> " << e->button();
+	//QGraphicsView::mouseReleaseEvent(e);
+	qInfo() << "post sky release! --> " << static_cast<QMouseEvent *>(e)->button();
+
+	if(viewScrolling)
+	{
+		viewScrolling = false;
+		QGuiApplication::restoreOverrideCursor();
+	}
+
+	if ( e->button() == Qt::LeftButton )
+	{
+		if( e->modifiers() & Qt::ControlModifier )
+		{
+			qInfo() << "sky ---> ctrl Press";
+		}
+		else if( e->modifiers() & Qt::ShiftModifier )
+		{
+			qInfo() << "sky ---> shift Press";
+		}
+		// open dialog (range of time) + save and reset the current capture polygon
+		else if( e->modifiers() & Qt::AltModifier )
+		{
+			if (currentCapturePolygon->polygon().size() < 3)
+			{
+				return;
+			}
+			qInfo() << "sky ---> alt Press";
+			// open dialog
+			emit addPolyDialogShown();
+		}
+		else {
+			qInfo() << "sky ---> normal release";
+			if (currentCapturePolygon->polygon().size() < 1)
+			{
+				previewCapturePath->setFirstPoint(mapToScene(e->pos()));
+			}
+			else
+			{
+				previewCapturePath->setLastPoint(mapToScene(e->pos()));
+			}
+
+			currentCapturePolygon->setPolygon(currentCapturePolygon->polygon() << mapToScene(e->pos()));
+		}
+	}
+
+	if ( e->button() == Qt::RightButton )
+	// current poly mit addVertex und removeLast ---> speichern in Liste von Poly zur Zeit ...
+	// Liste von Struct (Poly + Startzeit + Endzeit)
+	// memberVar overall Startzeit + Endzeit ---> updaten wenn Poly speichern
+	{
+		if (!digitizedPolygons.empty())
+		{
+			qInfo() << "triggered end it all";
+			// write digitized polygons to respective file
+			exportCulturePolygons();
+		}
+	}
+	// if ( e->button() == Qt::MiddleButton )
+	// {
+	// 	qInfo() << "release middle";
+	// 	stopPan();
+	// }
+	// else if ( e->button() == Qt::LeftButton )
+	// {
+	// 	stopPan();
+	// }
+	// else
+	// {
+
+	// 	// call handler of current map tool
+	// 	if ( mMapTool )
+	// 	{
+	// 		auto me = std::make_unique<QgsMapMouseEvent>( this, e );
+	// 		mMapTool->canvasReleaseEvent( me.get() );
+	// 	}
+	// }
+	//QGraphicsView::mouseReleaseEvent(e);
+}
+
+void SkycultureMapGraphicsView::mouseMoveEvent( QMouseEvent *e )
+{
+	//mCanvasProperties->mouseLastXY = e->pos();
+
+	if (!currentCapturePolygon->polygon().empty())
+	{
+		// QPainterPath testP(captureFirstPoint);
+		// testP.lineTo(mapToScene(e->pos()));
+		// testP.lineTo(captureLastPoint);
+
+		previewCapturePath->setMousePoint(mapToScene(e->pos()));
+	}
+
+	// reimplementation of default ScrollHandDrag in QGraphicsView
+	if (viewScrolling) {
+		QScrollBar *hBar = horizontalScrollBar();
+		QScrollBar *vBar = verticalScrollBar();
+		QPoint delta = e->pos() - mouseLastXY;
+		hBar->setValue(hBar->value() + (isRightToLeft() ? delta.x() : -delta.x()));
+		vBar->setValue(vBar->value() - delta.y());
+	}
+
+	mouseLastXY = e->pos();
+
+	// if ( mCanvasProperties->panSelectorDown )
+	// {
+	// 	panAction( e );
+	// }
+	// else
+	// {
+	// 	// call handler of current map tool
+	// 	if ( mMapTool )
+	// 	{
+	// 		auto me = std::make_unique<QgsMapMouseEvent>( this, e );
+	// 		mMapTool->canvasMoveEvent( me.get() );
+	// 	}
+	// }
+	QGraphicsView::mouseMoveEvent(e);
+
+}
+
+void SkycultureMapGraphicsView::addCurrentPoly(int startTime, int endTime)
+{
+	qInfo() << "addCurrentPoly time pair: " << startTime << ", " << endTime;
+
+	// add the polygon to the scene so the user can see some progress while digitizing other polygons
+	PreviewPolygonItem *poly = new PreviewPolygonItem(startTime, endTime, currentCapturePolygon->polygon());
+	scene()->addItem(poly);
+
+	// save poly
+	digitizedPolygons.emplaceBack(CulturePolygon(currentCapturePolygon->polygon(), startTime, endTime));
+	qInfo() << "currentCapturePoly: " << currentCapturePolygon->polygon();
+	qInfo() << "in list: " << digitizedPolygons.last().polygon;
+
+	// reset capture poly and path
+	currentCapturePolygon->setPolygon(QPolygonF());
+	previewCapturePath->reset();
+
+	// update the map
+	updateCultureVisibility();
+}
+
+void SkycultureMapGraphicsView::exportCulturePolygons()
+{
+	QString skyCulturesPath = StelFileMgr::getInstallationDir() + QDir::separator() + "skycultures";
+	QString selectedDirectory = QFileDialog::getExistingDirectory(nullptr, q_("Choose Export Directory"), skyCulturesPath);
+	qInfo() << "selectedDir: " << selectedDirectory;
+	if (selectedDirectory == "")
+	{
+		return;
+	}
+
+	QDir exportPath = QDir(selectedDirectory);
+
+	// create Json object from poly // array of obj of (poly --> array --> array(points, startTime -->, endTime)
+	QJsonObject jsonObject;
+	QJsonArray jsonArray;
+
+	for (const auto &currentPoly : digitizedPolygons)
+	{
+		QJsonObject arrayJsonObject;
+
+		arrayJsonObject["startTime"] = currentPoly.startTime;
+		arrayJsonObject["endTime"] = currentPoly.endTime;
+
+		QJsonArray poly;
+		for (const auto &point : currentPoly.polygon)
+		{
+			QJsonArray currentPoint;
+			currentPoint.append(point.x());
+			currentPoint.append(point.y());
+			poly.append(currentPoint);
+		}
+		arrayJsonObject["geometry"] = poly;
+
+		jsonArray.append(arrayJsonObject);
+	}
+
+	jsonObject["polygons"] = jsonArray;
+
+	QJsonDocument jsonDocument(jsonObject);
+
+	// create and write to JSON file
+	QFile jsonFile(exportPath.absoluteFilePath("tempCulturePolygon.json"));
+	if (!jsonFile.open(QIODevice::WriteOnly | QIODevice::Text))
+	{
+		qInfo() << "error opening the JSON file for export!";
+		return;
+	}
+	jsonFile.write(jsonDocument.toJson(QJsonDocument::Indented));
+}
+

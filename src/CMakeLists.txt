@@ -332,6 +332,10 @@ IF(STELLARIUM_GUI_MODE STREQUAL "Standard")
           gui/SkycultureMapGraphicsView.cpp
           gui/SkyculturePolygonItem.hpp
           gui/SkyculturePolygonItem.cpp
+          gui/PreviewPathItem.hpp
+          gui/PreviewPathItem.cpp
+          gui/PreviewPolygonItem.hpp
+          gui/PreviewPolygonItem.cpp
           gui/SeparatorListWidgetItem.hpp
           gui/SeparatorListWidgetItem.cpp
           gui/AngleSpinBox.hpp
@@ -342,6 +346,8 @@ IF(STELLARIUM_GUI_MODE STREQUAL "Standard")
           gui/DateTimeDialog.cpp
           gui/ViewDialog.hpp
           gui/ViewDialog.cpp
+          gui/ScmAddPolygonDialog.cpp
+          gui/ScmAddPolygonDialog.hpp
           gui/LightPollutionWidget.hpp
           gui/LightPollutionWidget.cpp
           gui/LogarithmicSpinBox.hpp
@@ -400,6 +406,7 @@ IF(STELLARIUM_GUI_MODE STREQUAL "Standard")
           gui/shortcutsDialog.ui
           gui/dateTimeDialogGui.ui
           gui/viewDialog.ui
+          gui/scmAddPolygonDialog.ui
           gui/lightPollutionWidget.ui
           gui/searchDialogGui.ui
           gui/configurationDialog.ui

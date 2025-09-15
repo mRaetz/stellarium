@@ -86,6 +86,7 @@ ViewDialog::ViewDialog(QObject* parent) : StelDialog("View", parent)
 	, greatRedSpotDialog(nullptr)
 	, configureDSOColorsDialog(nullptr)
 	, configureOrbitColorsDialog(nullptr)
+	, scmAddPolygonDialog(nullptr)
 {
 	ui = new Ui_viewDialogForm;	
 	// This connection should be made here, rather than in createDialogContent, because otherwise it
@@ -112,6 +113,8 @@ ViewDialog::~ViewDialog()
 	configureDSOColorsDialog = nullptr;
 	delete configureOrbitColorsDialog;
 	configureOrbitColorsDialog = nullptr;
+	delete scmAddPolygonDialog;
+	scmAddPolygonDialog = nullptr;
 }
 
 void ViewDialog::retranslate()
@@ -189,13 +192,13 @@ void ViewDialog::createDialogContent()
 
 	// TODOs after properties merge:
 	// Jupiter's GRS should become property, and recheck the other "from trunk" entries.
-	connect(ui->culturesListWidget, SIGNAL(currentTextChanged(const QString&)), ui->skyCultureMapGraphicsView, SLOT(selectCulture(QString)));
+	connect(ui->culturesListWidget, &QListWidget::currentTextChanged, ui->skyCultureMapGraphicsView, &SkycultureMapGraphicsView::selectCulture);
 	connect(ui->culturesListWidget, SIGNAL(currentTextChanged(const QString&)), &StelApp::getInstance().getSkyCultureMgr(), SLOT(setCurrentSkyCultureNameI18(QString)));
-	connect(ui->skyCultureMapGraphicsView, SIGNAL(cultureSelected(QString)), &StelApp::getInstance().getSkyCultureMgr(), SLOT(setCurrentSkyCultureNameI18(QString)));
+	connect(ui->skyCultureMapGraphicsView, &SkycultureMapGraphicsView::cultureSelected, &StelApp::getInstance().getSkyCultureMgr(), &StelSkyCultureMgr::setCurrentSkyCultureNameI18);
 	connect(&StelApp::getInstance().getSkyCultureMgr(), &StelSkyCultureMgr::currentSkyCultureIDChanged, this, &ViewDialog::skyCultureChanged);
 
 	// skyculture list search bar
-	connect(ui->culturesListSearchLineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(filterSkyCultures()));
+	connect(ui->culturesListSearchLineEdit, &QLineEdit::textChanged, this, &ViewDialog::filterSkyCultures);
 
 	// Connect and initialize checkboxes and other widgets
 	SolarSystem* ssmgr = GETSTELMODULE(SolarSystem);
@@ -242,6 +245,8 @@ void ViewDialog::createDialogContent()
 		ui->pushButtonSkylightDetails->hide();
 	// tonemapping details
 	connect(ui->tonemappingPushButton, SIGNAL(clicked()), this, SLOT(showTonemappingDialog()));
+
+	connect(ui->skyCultureMapGraphicsView, &SkycultureMapGraphicsView::addPolyDialogShown, this, &ViewDialog::showAddPolygonDialog);
 
 	// Planets section
 	connectGroupBox(ui->planetsGroupBox, "actionShow_Planets");
@@ -565,14 +570,15 @@ void ViewDialog::createDialogContent()
 
 	initSkycultureTime();
 
-	connect(ui->skyCultureTimeSlider, SIGNAL(valueChanged(int)), this, SLOT(updateSkyCultureTimeValue(int)));
-	connect(ui->skyCultureCurrentTimeSpinBox, SIGNAL(valueChanged(int)), this, SLOT(updateSkyCultureTimeValue(int)));
-	connect(ui->skyCultureMapGraphicsView, SIGNAL(timeValueChanged(int)), this, SLOT(updateSkyCultureTimeValue(int)));
+	connect(ui->skyCultureTimeSlider, &QSlider::valueChanged, this, &ViewDialog::updateSkyCultureTimeValue);
+	connect(ui->skyCultureCurrentTimeSpinBox, &QSpinBox::valueChanged, this, &ViewDialog::updateSkyCultureTimeValue);
+	connect(ui->skyCultureMapGraphicsView, &SkycultureMapGraphicsView::timeValueChanged, this, &ViewDialog::updateSkyCultureTimeValue);
 
-	connect(ui->skyCultureMinTimeSpinBox, SIGNAL(valueChanged(int)), this, SLOT(changeMinTime(int)));
-	connect(ui->skyCultureMaxTimeSpinBox, SIGNAL(valueChanged(int)), this, SLOT(changeMaxTime(int)));
+	connect(ui->skyCultureMinTimeSpinBox, &QSpinBox::valueChanged, this, &ViewDialog::changeMinTime);
+	connect(ui->skyCultureMaxTimeSpinBox, &QSpinBox::valueChanged, this, &ViewDialog::changeMaxTime);
 
-	connect(ui->applyTimeOnListCheckBox, SIGNAL(toggled(bool)), this, SLOT(filterSkyCultures()));
+	connect(ui->applyTimeOnListCheckBox, &QCheckBox::toggled, this, &ViewDialog::filterSkyCultures);
+	connect(ui->useLocationForRotationCheckBox, &QCheckBox::toggled, ui->skyCultureMapGraphicsView, &SkycultureMapGraphicsView::rotateMap);
 
 
 	configureSkyCultureCheckboxes();
@@ -693,6 +699,8 @@ void ViewDialog::createDialogContent()
 
 bool ViewDialog::eventFilter(QObject* object, QEvent* event)
 {
+	if(event->type() == QEvent::MouseButtonPress) qInfo() << "return View! --> " << static_cast<QMouseEvent *>(event)->button();
+	else if(event->type() == QEvent::KeyPress) qInfo() << "return View! --> " << static_cast<QKeyEvent *>(event)->key();
 	if (object != dialog || event->type() != QEvent::KeyPress)
 		return false;
 	const auto keyEvent = static_cast<QKeyEvent*>(event);
@@ -1171,7 +1179,7 @@ void ViewDialog::populateLists()
 	}
 
 	// add regions to list as custom QListWidgetItem
-	for (const auto region : sortedOccuringRegions)
+	for (const auto &region : sortedOccuringRegions)
 	{
 		l->addItem(new SeparatorListWidgetItem(region));
 	}
@@ -1184,7 +1192,7 @@ void ViewDialog::populateLists()
 		cultureRegionIterator.previous();
 		QListWidgetItem* item = new QListWidgetItem(cultureRegionIterator.key());
 		item->setData(Qt::UserRole, - 100); // startTime
-		item->setData(Qt::UserRole + 1, 100);
+		item->setData(Qt::UserRole + 1, 100); // endTime
 
 		l->insertItem(l->row(l->findItems(cultureRegionIterator.value(), Qt::MatchContains).at(0)) + 1, item);
 	}
@@ -1400,6 +1408,21 @@ void ViewDialog::showSkylightDialog()
     skylightDialog->setVisible(true);
 }
 
+void ViewDialog::showAddPolygonDialog()
+{
+	if(scmAddPolygonDialog == nullptr)
+	{
+		scmAddPolygonDialog = new ScmAddPolygonDialog(this);
+		connect(scmAddPolygonDialog, &ScmAddPolygonDialog::addPolygonDialogConfirmed, ui->skyCultureMapGraphicsView, &SkycultureMapGraphicsView::addCurrentPoly);
+
+		scmAddPolygonDialog->setVisible(true);
+		scmAddPolygonDialog->setTimeLimits(ui->skyCultureCurrentTimeSpinBox->minimum(), ui->skyCultureCurrentTimeSpinBox->maximum());
+	}
+
+	scmAddPolygonDialog->setVisible(true);
+	scmAddPolygonDialog->setStartTime(ui->skyCultureCurrentTimeSpinBox->value());
+}
+
 void ViewDialog::showTonemappingDialog()
 {
     if(tonemappingDialog == nullptr)
@@ -1475,10 +1498,15 @@ void ViewDialog::setCurrentCultureAsDefault(void)
 
 void ViewDialog::updateDefaultSkyCulture()
 {
+	// set Labels to the Min / Max time of the current selected culture (UserRole == startTime, UserRole + 1 == endTime)
+	ui->selectedCultureMinTimeValueLabel->setText(ui->culturesListWidget->currentItem()->data(Qt::UserRole).toString());
+	ui->selectedCultureMaxTimeValueLabel->setText(ui->culturesListWidget->currentItem()->data(Qt::UserRole + 1).toString());
+
 	// Check that the useAsDefaultSkyCultureCheckBox needs to be updated
 	bool b = StelApp::getInstance().getSkyCultureMgr().getCurrentSkyCultureID()==StelApp::getInstance().getSkyCultureMgr().getDefaultSkyCultureID();
 	ui->useAsDefaultSkyCultureCheckBox->setChecked(b);
 	ui->useAsDefaultSkyCultureCheckBox->setEnabled(!b);
+
 	// Check that ray helpers and asterism lines are defined
 	b = GETSTELMODULE(AsterismMgr)->isLinesDefined();
 	ui->showAsterismLinesCheckBox->setEnabled(b);
