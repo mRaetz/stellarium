@@ -463,7 +463,7 @@ QHash<QString,QString> SolarSystemEditor::listAllLoadedObjectsInFile(const QStri
 	for (const auto &group : std::as_const(groups))
 	{
 		QString name = solarSystemIni.value(group + "/name").toString();
-		if (minorBodies.contains(name))
+		if (!minorBodies.filter(name).isEmpty())
 		{
 			loadedObjects.insert(name, group);
 		}
@@ -988,7 +988,7 @@ SsoElements SolarSystemEditor::readMpcOneLineMinorPlanetElements(const QString &
 			qCritical() << "Error in MPC large number decoding of " << column;
 			return result;
 		}
-		minorPlanetNumber=((q4*62 + q3)*62 + q2)*62 + q1;
+		minorPlanetNumber=((q4*62 + q3)*62 + q2)*62 + q1 + 620000;
 	}
 	else
 	{

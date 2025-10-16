@@ -1,10 +1,6 @@
 #ifndef SKYCULTUREMAPGRAPHICSVIEW_HPP
 #define SKYCULTUREMAPGRAPHICSVIEW_HPP
 
-#include "ScmAddPolygonDialog.hpp"
-#include "PreviewPathItem.hpp"
-#include "SkyculturePolygonItem.hpp"
-#include "PreviewPolygonItem.hpp"
 #include <qtimeline.h>
 #include <QGraphicsView>
 
@@ -19,43 +15,34 @@ public:
 
 	// public functions
 	//void initializeTime();
-	void initializeGraphicsView();
+	//void initializeGraphicsView();
 
 public slots:
 	void selectCulture(const QString &skycultureId);
 	void updateTime(int year);
 	void rotateMap(bool isRotated);
 	void changeProjection(bool isChanged);
-	// ===================================
-	void addCurrentPoly(int startTime, int endTime);
 
 
 signals:
 	void cultureSelected(const QString &skycultureId);
 	void timeValueChanged(int year);
 	void timeRangeChanged(int minYear, int maxYear);
-	// =============================================
-	void addPolyDialogShown();
-
 
 protected:
-	void wheelEvent(QWheelEvent *event) override;
-	// void mouseMoveEvent(QMouseEvent *event) override;
-	// void mousePressEvent(QMouseEvent *event) override;
-	// void mouseReleaseEvent(QMouseEvent *event) override;
-	void showEvent(QShowEvent *event) override;
+	void wheelEvent(QWheelEvent *e) override;
+	void mouseMoveEvent(QMouseEvent *e) override;
+	void mousePressEvent(QMouseEvent *e) override;
+	void mouseReleaseEvent(QMouseEvent *e) override;
+	void showEvent(QShowEvent *e) override;
 	void scaleView(double scaleFactor);
-	// ===============================
-	void mouseMoveEvent( QMouseEvent *e ) override;
-	void mousePressEvent( QMouseEvent *e ) override;
-	void mouseReleaseEvent( QMouseEvent *e ) override;
-	void keyPressEvent( QKeyEvent *e ) override;
 
-
-private: // projection change bestenfalls mit ENUM oder so
+private:
 	// variables
 	bool viewScrolling;
+	bool mapMoved;
 	bool firstShow;
+	bool isRotated;
 	int currentYear;
 	QPoint mouseLastXY;
 	QString oldSkyCulture;
@@ -66,41 +53,15 @@ private: // projection change bestenfalls mit ENUM oder so
 	QRectF targetRect;
 
 	// functions
-	QList<QPointF> convertLatLonToMeter(const QList<QPointF> &irl, qreal mapWidth, qreal mapHeight);
-	QList<QPointF> convertMeterToView(const QList<QPointF> &irl, qreal mapWidth, qreal mapHeight);
+	QList<QPointF> convertLatLonToMeter(const QList<QPointF> &latLonCoordinates);
+	QList<QPointF> convertMeterToView(const QList<QPointF> &meterCoordinates);
+	QList<QPointF> convertLatLonToView(const QList<QPointF> &latLonCoordinates);
 	void updateCultureVisibility();
 	void smoothFitInView(QRectF targetRect);
 	void selectAllCulturePolygon(const QString &skycultureId);
-	void drawMapContent(const QString &baseMap);
+	void drawMapContent();
+	void loadCulturePolygons();
 	qreal calculateScaleRatio(qreal width, qreal height);
-	// ================================
-
-	struct CulturePolygon
-	{
-		QPolygonF polygon;
-		int startTime = 0;
-		int endTime = 0;
-
-		CulturePolygon() = default;
-		CulturePolygon(QPolygonF polygon, int startTime, int endTime)
-			: polygon(polygon), startTime(startTime), endTime(endTime)
-		{
-		}
-	};
-
-	//QList<...Polygon(F) mit start und endzeit> *
-	QList<CulturePolygon> digitizedPolygons;
-	PreviewPolygonItem *currentCapturePolygon = new PreviewPolygonItem(true);
-
-	//QPointF captureFirstPoint;
-	//QPointF captureLastPoint;
-	PreviewPathItem *previewCapturePath = new PreviewPathItem();
-
-	// functions
-	void updatePreviewPath();
-	void exportCulturePolygons();
-
-
 
 private slots:
 	void zoomToDefault(qreal factor);

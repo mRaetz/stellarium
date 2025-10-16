@@ -21,13 +21,15 @@
 #define VIEWDIALOG_HPP
 
 #include "StelDialog.hpp"
-#include "ScmAddPolygonDialog.hpp"
 
 #include <QObject>
 #include <QTimer>
+#include <QHash>
+#include "StelObject.hpp"
 
 class Ui_viewDialogForm;
 class QListWidgetItem;
+class QTreeWidgetItem;
 class QToolButton;
 
 class AddRemoveLandscapesDialog;
@@ -37,7 +39,6 @@ class TonemappingDialog;
 class GreatRedSpotDialog;
 class ConfigureDSOColorsDialog;
 class ConfigureOrbitColorsDialog;
-class ScmAddPolygonDialog;
 
 class ViewDialog : public StelDialog
 {
@@ -61,6 +62,9 @@ private slots:
 	void configureSkyCultureCheckboxes();
 	void updateSkyCultureInfoStyleFromCheckboxes();
 	void updateSkyCultureScreenStyleFromCheckboxes();
+	void populateCulturalCombo(QComboBox *combo, StelObject::CulturalDisplayStyle style);
+	void setZodiacLabelStyle(int index);
+	void setLunarSystemLabelStyle(int index);
 	void populateToolTips();
 	void skyCultureChanged();
 	void changeProjection(const QString& projectionNameI18n);
@@ -76,6 +80,7 @@ private slots:
 	void changeMaxTime(int maxYear);
 	void updateSkyCultureTimeRange(int minYear, int maxYear);
 	void filterSkyCultures();
+	void initiateSkycultureMapRotation();
 
 	void showAddRemoveLandscapesDialog();
 	// GZ I make this public to have it on a hotkey...
@@ -86,7 +91,6 @@ public slots:
 	void showGreatRedSpotDialog();
 	void showConfigureDSOColorsDialog();
 	void showConfigureOrbitColorsDialog();
-	void showAddPolygonDialog();
 
 private slots:
 	void populatePlanetMagnitudeAlgorithmsList();
@@ -103,9 +107,11 @@ private slots:
 	void updateSelectedCatalogsCheckBoxes();
 	void updateSelectedTypesCheckBoxes();
 
+	void clearHips();
 	void updateHips();
+	void updateHipsText();
 	void filterSurveys();
-	void hipsListItemChanged(QListWidgetItem* item);
+	void hipsListItemChanged(QTreeWidgetItem* item);
 	void populateHipsGroups();
 	void toggleHipsDialog();
 
@@ -130,8 +136,16 @@ private:
 	GreatRedSpotDialog * greatRedSpotDialog;
 	ConfigureDSOColorsDialog * configureDSOColorsDialog;
 	ConfigureOrbitColorsDialog * configureOrbitColorsDialog;
-	ScmAddPolygonDialog * scmAddPolygonDialog;
+
 	QTimer hipsUpdateTimer;
+	struct PlanetSurveyPack
+	{
+		QTreeWidgetItem* planetItem = nullptr;
+		QHash<QString/*group*/, QTreeWidgetItem* /*groupItem*/> groupsMap;
+	};
+	QHash<QString/*planet English name*/, PlanetSurveyPack> planetarySurveys;
+	QHash<QString/*survey URL*/, QTreeWidgetItem*> surveysInTheList;
+	QString selectedSurveyType;
 };
 
 #endif // _VIEWDIALOG_HPP

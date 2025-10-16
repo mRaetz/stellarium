@@ -102,7 +102,7 @@ public:
 	QString license;
 	//! The name of region following the United Nations geoscheme UN~M49 https://unstats.un.org/unsd/methodology/m49/
 	//! For skycultures of worldwide applicability (mostly those adhering to IAU constellation borders), use "Global".
-	QString region;
+	QJsonArray region;
 	//! Earliest available year
 	int startTime;
 	//! Latest available year
@@ -157,6 +157,14 @@ class StelSkyCultureMgr : public StelModule
 		   READ getInfoLabelStyle
 		   WRITE setInfoLabelStyle
 		   NOTIFY infoLabelStyleChanged)
+	Q_PROPERTY(StelObject::CulturalDisplayStyle zodiacLabelStyle
+		   READ getZodiacLabelStyle
+		   WRITE setZodiacLabelStyle
+		   NOTIFY zodiacLabelStyleChanged)
+	Q_PROPERTY(StelObject::CulturalDisplayStyle lunarSystemLabelStyle
+		   READ getLunarSystemLabelStyle
+		   WRITE setLunarSystemLabelStyle
+		   NOTIFY lunarSystemLabelStyleChanged)
 	Q_PROPERTY(bool flagUseAbbreviatedNames
 		   READ getFlagUseAbbreviatedNames
 		   WRITE setFlagUseAbbreviatedNames
@@ -241,13 +249,21 @@ public slots:
 
 	//! Get a map of sky culture names in the current language and the corresponding region.
 	//! @return A map of translated sky culture names and corresponding regions.
-	QMap<QString, QString> getSkyCultureRegionMapI18(void) const;
+	QMultiMap<QString, QString> getSkyCultureRegionMapI18(void) const;
+
+	//! Get a map of sky culture names in the current language and the corresponding time limits.
+	//! @return A map of translated sky culture names and the corresponding time limits.
+	QMap<QString, QPair<int, int>> getSkyCultureTimeLimitMapI18(void) const;
 
 	//! Get a list of sky culture IDs
 	QStringList getSkyCultureListIDs(void) const;
 
 	//! Returns a map from sky culture IDs/folders to sky culture names.
 	QMap<QString, StelSkyCulture> getDirToNameMap() const { return dirToNameEnglish; }
+
+	//! Get a map of sky culture IDs / folders and the corresponding (translated) names in the current language.
+	//! @return A map of sky culture IDs and the corresponding translated names in the current language.
+	QMap<QString, QString> getDirToI18Map(void) const;
 
 	static StelObject::CulturalDisplayStyle convertCulturalDisplayStyleFromCSVstring(const QString &csv);
 	static QString convertCulturalDisplayStyleToCSVstring(const StelObject::CulturalDisplayStyle style);
@@ -270,6 +286,24 @@ public slots:
 	//! scripting version
 	void setInfoLabelStyle(const QString &style);
 
+	//! Returns the Zodiac labeling setting for the currently active skyculture
+	StelObject::CulturalDisplayStyle getZodiacLabelStyle() const;
+	//! Scripting version
+	QString getZodiacLabelStyleString() const;
+	//! sets the Zodiac labeling setting for the currently active skyculture
+	void setZodiacLabelStyle(const StelObject::CulturalDisplayStyle style);
+	//! scripting version
+	void setZodiacLabelStyle(const QString &style);
+
+	//! Returns the Lunar_System labeling setting for the currently active skyculture
+	StelObject::CulturalDisplayStyle getLunarSystemLabelStyle() const;
+	//! Scripting version
+	QString getLunarSystemLabelStyleString() const;
+	//! sets the Lunar_System labeling setting for the currently active skyculture
+	void setLunarSystemLabelStyle(const StelObject::CulturalDisplayStyle style);
+	//! scripting version
+	void setLunarSystemLabelStyle(const QString &style);
+
 	//! Returns whether we ignore SC authors' settings "fallback_to_international_names"
 	bool getFlagOverrideUseCommonNames() const {return flagOverrideUseCommonNames; }
 	//! Set whether we ignore SC authors' settings "fallback_to_international_names"
@@ -283,6 +317,10 @@ public slots:
 	//! Returns whether current skyculture uses (incorporates) common names.
 	bool currentSkycultureUsesCommonNames() const;
 
+#if QT_VERSION_MAJOR >= 6
+	//! Debugging/developing function. Call via scripting.
+	void analyzeScreenLabel() const;
+#endif
 signals:
 	//! Emitted whenever the default sky culture changed.
 	//! @see setDefaultSkyCultureID
@@ -298,6 +336,10 @@ signals:
 	void infoLabelStyleChanged(const StelObject::CulturalDisplayStyle style);
 	//! Emitted when ScreenLabelStyle has changed
 	void screenLabelStyleChanged(const StelObject::CulturalDisplayStyle style);
+	//! Emitted when ZodiacLabelStyle has changed
+	void zodiacLabelStyleChanged(const StelObject::CulturalDisplayStyle style);
+	//! Emitted when Lunar_System LabelStyle has changed
+	void lunarSystemLabelStyleChanged(const StelObject::CulturalDisplayStyle style);
 
 	//! Emitted on flag change.
 	void flagOverrideUseCommonNamesChanged(bool override);
