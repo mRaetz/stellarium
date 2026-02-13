@@ -213,9 +213,18 @@ void ScmSkyCultureDialog::createDialogContent()
 	// polygon info options
 
 	connect(ui->polygonInfoTreeWidget, &QTreeWidget::itemClicked, this, &ScmSkyCultureDialog::selectLocation);
-	connect(ui->removePolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::removeLocation);
-	connect(ui->polygonInfoTreeWidget, &QTreeWidget::itemSelectionChanged, this, &ScmSkyCultureDialog::updateRemovePolygonButton);
+	connect(ui->removePolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::removeSelectedLocation);
+	connect(ui->editPolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::editSelectedLocation);
+	connect(ui->saveEditPolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::saveLocationChanges);
+	connect(ui->abortEditPolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::discardLocationChanges);
+	connect(ui->polygonInfoTreeWidget, &QTreeWidget::itemSelectionChanged, this, [this]() {
+		updateRemovePolygonButton();
+		updateEditPolygonButton();
+	});
 	ui->removePolygonButton->setEnabled(false);
+	ui->editPolygonButton->setEnabled(false);
+	ui->saveEditPolygonButton->setVisible(false);
+	ui->abortEditPolygonButton->setVisible(false);
 
 	ui->polygonInfoTreeWidget->header()->setDefaultAlignment(Qt::AlignCenter);
 	ui->polygonInfoTreeWidget->header()->setSectionsMovable(false);
@@ -447,6 +456,18 @@ void ScmSkyCultureDialog::updateRemovePolygonButton()
 	}
 }
 
+void ScmSkyCultureDialog::updateEditPolygonButton()
+{
+	if (!ui->polygonInfoTreeWidget->selectedItems().isEmpty())
+	{
+		ui->editPolygonButton->setEnabled(true);
+	}
+	else
+	{
+		ui->editPolygonButton->setEnabled(false);
+	}
+}
+
 QString ScmSkyCultureDialog::getDisplayNameFromConstellation(const scm::ScmConstellation &constellation) const
 {
 	return constellation.getEnglishName() + " (" + constellation.getId() + ")";
@@ -658,6 +679,7 @@ void ScmSkyCultureDialog::resetDialog()
 		ui->cultureStartTimeValueLabel->setText("");
 		ui->cultureEndTimeValueLabel->setText("");
 		initSkyCultureTime(); // reuse init function to set skyCultureTimeSlider / skyCultureCurrentTimeSpinBox
+		discardLocationChanges(); // exit edit mode and discard changes
 		ui->polygonInfoTreeWidget->clear(); // reset the location list
 		ui->scmGeoLocGraphicsView->reset(); // reset the map used for digitizing
 		updateRemovePolygonButton();
@@ -736,12 +758,14 @@ void ScmSkyCultureDialog::addLocation(scm::CulturePolygon culturePoly)
 
 	// add polygon to list (polygonInfoTreeWidget)
 	ui->polygonInfoTreeWidget->addTopLevelItem(new ScmPolygonInfoTreeItem(culturePoly.id, culturePoly.startTime, culturePoly.endTime, culturePoly.polygon.size()));
+	ui->polygonInfoTreeWidget->clearSelection();
+	ui->polygonInfoTreeWidget->topLevelItem(ui->polygonInfoTreeWidget->topLevelItemCount() - 1)->setSelected(true);
 
 	// send poly to maker
 	maker->addSkyCultureLocation(culturePoly);
 }
 
-void ScmSkyCultureDialog::removeLocation()
+void ScmSkyCultureDialog::removeSelectedLocation()
 {
 	// in theory, there should always only be 1 selected item at a time in polygonInfoTreeWidget
 	// (maybe this changes in the future, therefore the for-loop usage is reasonable)
@@ -803,6 +827,60 @@ void ScmSkyCultureDialog::removeLocation()
 		ui->cultureStartTimeValueLabel->setText("");
 		ui->cultureEndTimeValueLabel->setText("");
 	}
+}
+
+void ScmSkyCultureDialog::editSelectedLocation()
+{
+	ui->editPolygonButton->setVisible(false);
+	ui->saveEditPolygonButton->setVisible(true);
+	ui->abortEditPolygonButton->setVisible(true);
+
+	for (const auto &item : ui->polygonInfoTreeWidget->selectedItems())
+	{
+		// maybe use edit func (but for now quick and dirty: remove ---> edit ---> add new)
+		ScmPolygonInfoTreeItem *polygonInfoItem = static_cast<ScmPolygonInfoTreeItem *>(item);
+
+		// start editMode for given polygon (in scmGeoLocGraphicsView)
+		ui->scmGeoLocGraphicsView->editPolygon(polygonInfoItem->getId());
+	}
+	// disable treeWidget and removePolygonButton so the user doesnt break anything
+	ui->polygonInfoTreeWidget->setEnabled(false);
+	ui->removePolygonButton->setEnabled(false);
+	ui->scmGeoLocGraphicsView->setFocus();
+}
+
+void ScmSkyCultureDialog::saveLocationChanges()
+{
+	for (const auto &item : ui->polygonInfoTreeWidget->selectedItems())
+	{
+		ScmPolygonInfoTreeItem *polygonInfoItem = static_cast<ScmPolygonInfoTreeItem *>(item);
+		maker->removeSkyCultureLocation(polygonInfoItem->getId());
+		delete item;
+	}
+	ui->scmGeoLocGraphicsView->exitEditMode(false);
+
+	// re-activate gui elements / change visibility
+	ui->polygonInfoTreeWidget->setEnabled(true);
+	ui->editPolygonButton->setVisible(true);
+	ui->saveEditPolygonButton->setVisible(false);
+	ui->abortEditPolygonButton->setVisible(false);
+	ui->scmGeoLocGraphicsView->setFocus();
+}
+
+void ScmSkyCultureDialog::discardLocationChanges()
+{
+	if (ui->polygonInfoTreeWidget->topLevelItemCount() > 0)
+	{
+		ui->scmGeoLocGraphicsView->exitEditMode(true);
+	}
+
+	// re-activate gui elements / change visibility
+	ui->polygonInfoTreeWidget->setEnabled(true);
+	ui->removePolygonButton->setEnabled(true); // not needed in saveLocationChanges because new item is added
+	ui->editPolygonButton->setVisible(true);
+	ui->saveEditPolygonButton->setVisible(false);
+	ui->abortEditPolygonButton->setVisible(false);
+	ui->scmGeoLocGraphicsView->setFocus();
 }
 
 void ScmSkyCultureDialog::selectLocation(QTreeWidgetItem *item)

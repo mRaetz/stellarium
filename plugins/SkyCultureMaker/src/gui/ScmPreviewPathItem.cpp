@@ -23,6 +23,7 @@
 
 ScmPreviewPathItem::ScmPreviewPathItem()
 	: QGraphicsPathItem()
+	, fillPath(true)
 {
 	QPen pen;
 	pen.setColor((QColor(255, 0, 0, 255)));
@@ -61,7 +62,19 @@ void ScmPreviewPathItem::setLastPoint(QPointF point)
 
 void ScmPreviewPathItem::reset()
 {
-	// clear() does not exist before Qt5.13
 	currentPath = QPainterPath();
 	setPath(currentPath);
+	fillPath = true;
+}
+
+void ScmPreviewPathItem::setFillPath(bool fill)
+{
+	if(fill)
+	{
+		setBrush(QBrush(QColor(255, 50, 50, 50)));
+	}
+	else
+	{
+		setBrush(Qt::NoBrush);
+	}
 }

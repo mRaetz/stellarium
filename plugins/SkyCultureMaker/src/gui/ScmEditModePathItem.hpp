@@ -17,35 +17,39 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SCMPREVIEWPATHITEM_HPP
-#define SCMPREVIEWPATHITEM_HPP
+#ifndef SCMEDITMODEPATHITEM_HPP
+#define SCMEDITMODEPATHITEM_HPP
 
 #include <QGraphicsPathItem>
 
-//! @class ScmPreviewPathItem
-//! Custom QGraphicsPathItem that allows to display a path defined by 3 points.
-class ScmPreviewPathItem : public QGraphicsPathItem
+//! @class ScmEditModePathItem
+//! Simple QGraphicsEllipseItem defined by a ellipse, startTime and EndTime ???.
+class ScmEditModePathItem : public QGraphicsPathItem
 {
 public:
-	ScmPreviewPathItem();
+	ScmEditModePathItem(int edgeID);
 
 	// public functions
-	void setFirstPoint(QPointF point);
-	void setMousePoint(QPointF point);
-	void setLastPoint(QPointF point);
-	void setFillPath(bool fill);
-
-	void reset();
+	int getStartTime() const {return startTime;}
+	int getEndTime() const {return endTime;}
+	int getEdgeID() const {return edgeID;}
+	bool existsAtPointInTime(int year) const;
+	void setPosition(const QPointF &pos);
+	//void setSize();
 
 public slots:
 
 signals:
 
 protected:
+	void hoverEnterEvent(QGraphicsSceneHoverEvent *event) override;
+	void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override;
+	QVariant itemChange(QGraphicsItem::GraphicsItemChange change, const QVariant &value) override;
 
 private:
-	QPainterPath currentPath;
-	bool fillPath;
+	int startTime;
+	int endTime;
+	int edgeID;
 };
 
-#endif // SCMPREVIEWPATHITEM_HPP
+#endif // SCMEDITMODEPATHITEM_HPP

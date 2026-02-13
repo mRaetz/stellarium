@@ -18,6 +18,8 @@
  */
 
 #include "ScmGeoLocGraphicsView.hpp"
+#include "ScmEditModeEllipseItem.hpp"
+#include "ScmEditModePathItem.hpp"
 #include <qevent.h>
 #include <qguiapplication.h>
 #include <qjsonarray.h>
@@ -33,6 +35,7 @@ ScmGeoLocGraphicsView::ScmGeoLocGraphicsView(QWidget *parent)
 	: QGraphicsView(parent)
 	, viewScrolling(false)
 	, firstShow(true)
+	, editMode(EditMode::INACTIVE)
 	, currentYear(0)
 	, mouseLastXY(0, 0)
 {
@@ -91,7 +94,7 @@ void ScmGeoLocGraphicsView::showEvent(QShowEvent *event)
 
 void ScmGeoLocGraphicsView::mouseMoveEvent(QMouseEvent *event)
 {
-	if (!currentCapturePolygon->polygon().empty())
+	if (!currentCapturePolygon->polygon().empty() || editMode == EditMode::MOVEPOINT || editMode == EditMode::ADDPOINT)
 	{
 		previewCapturePath->setMousePoint(mapToScene(event->pos()));
 	}
@@ -131,58 +134,179 @@ void ScmGeoLocGraphicsView::mousePressEvent(QMouseEvent *event)
 void ScmGeoLocGraphicsView::mouseReleaseEvent(QMouseEvent *event)
 {
 	setFocus();
-	if (event->button() == Qt::LeftButton)
+	if (!(editMode == EditMode::INACTIVE))
 	{
-		// open dialog (range of time) + save and reset the current capture polygon
-		if(event->modifiers() & Qt::AltModifier)
+		if ((event->button() == Qt::RightButton || event->button() == Qt::LeftButton) && !viewScrolling)
 		{
-			if (currentCapturePolygon->polygon().size() < 3)
+			if (editMode == EditMode::ACTIVE)
 			{
-				return;
-			}
-			// open dialog 'popup'
-			emit showAddPolyDialog();
-		}
-		// do not set a point after a scrolling operation (maybe the user unintentionally released SHIFT)
-		else if (!viewScrolling)
-		{
-			if (currentCapturePolygon->polygon().size() < 1)
-			{
-				previewCapturePath->setFirstPoint(mapToScene(event->pos()));
-			}
-			else
-			{
-				previewCapturePath->setLastPoint(mapToScene(event->pos()));
-			}
+				// check if item under mouse is edit ellipse
+				QGraphicsItem *currentTopmostMouseGrabberItem = itemAt(event->pos());
+				currentVertexEllipseItem = qgraphicsitem_cast<ScmEditModeEllipseItem *>(currentTopmostMouseGrabberItem);
+				if (currentVertexEllipseItem)
+				{
+					QPolygonF currentParentPolygon = qgraphicsitem_cast<ScmPreviewPolygonItem *>(currentVertexEllipseItem->parentItem())->polygon();
+					int currentVertexIndex = std::find(editModeVertexList.begin(), editModeVertexList.end(), currentVertexEllipseItem->getVertexID()) - editModeVertexList.begin();
 
-			currentCapturePolygon->setPolygon(currentCapturePolygon->polygon() << mapToScene(event->pos()));
+					previewCapturePath->setFirstPoint(currentParentPolygon[(currentVertexIndex - 1) < 0 ? (currentParentPolygon.size() - 1) : (currentVertexIndex - 1)]);
+					previewCapturePath->setLastPoint(currentParentPolygon[(currentVertexIndex + 1) == currentParentPolygon.size() ? 0 : (currentVertexIndex + 1)]);
+					previewCapturePath->setMousePoint(mapToScene(event->pos()));
+					previewCapturePath->setFillPath(false);
+
+					currentVertexEllipseItem->setVisible(false);
+					QGuiApplication::setOverrideCursor(Qt::CrossCursor);
+					editMode = EditMode::MOVEPOINT;
+				}
+				currentEdgePathItem = qgraphicsitem_cast<ScmEditModePathItem *>(currentTopmostMouseGrabberItem);
+				if (currentEdgePathItem)
+				{
+					QPolygonF currentParentPolygon = qgraphicsitem_cast<ScmPreviewPolygonItem *>(currentEdgePathItem->parentItem())->polygon();
+					int currentEdgeIndex = std::find_if(editModeEdgeList.begin(), editModeEdgeList.end(),
+														[this](const ScmEditModePathItem* i) {
+															return i->getEdgeID() == currentEdgePathItem->getEdgeID();
+														}) - editModeEdgeList.begin();
+
+					previewCapturePath->setFirstPoint(currentParentPolygon[currentEdgeIndex]);
+					previewCapturePath->setLastPoint(currentParentPolygon[(currentEdgeIndex + 1) == currentParentPolygon.size() ? 0 : (currentEdgeIndex + 1)]);
+					previewCapturePath->setMousePoint(mapToScene(event->pos()));
+					previewCapturePath->setFillPath(false);
+
+					currentEdgePathItem->setVisible(false);
+					QGuiApplication::setOverrideCursor(Qt::CrossCursor);
+					editMode = EditMode::ADDPOINT;
+				}
+			}
+			else if (editMode == EditMode::MOVEPOINT)
+			{
+				auto *currentParentItem = qgraphicsitem_cast<ScmPreviewPolygonItem *>(currentVertexEllipseItem->parentItem());
+				QPolygonF newPolygon = currentParentItem->polygon();
+
+				// set point of polygon at index (vertexID) to new value
+				int currentVertexIndex = std::find(editModeVertexList.begin(), editModeVertexList.end(), currentVertexEllipseItem->getVertexID()) - editModeVertexList.begin();
+				newPolygon[currentVertexIndex] = mapToScene(event->pos());
+				currentParentItem->setPolygon(newPolygon);
+
+				// set pos and vis of ellipse item
+				currentVertexEllipseItem->setVisible(true);
+				currentVertexEllipseItem->setPosition(mapToScene(event->pos()));
+
+				// reposition adjacent edgeItems
+				// predecessor edge
+				int evalLowerBoundIdx = (currentVertexIndex - 1) < 0 ? newPolygon.size() - 1 : (currentVertexIndex - 1);
+				qreal centerX = (newPolygon[evalLowerBoundIdx].x() + newPolygon[currentVertexIndex].x()) / 2;
+				qreal centerY = (newPolygon[evalLowerBoundIdx].y() + newPolygon[currentVertexIndex].y()) / 2;
+				editModeEdgeList[evalLowerBoundIdx]->setPosition(QPointF(centerX, centerY));
+				// successor edge
+				int evalUpperBoundIdx = (currentVertexIndex + 1) == newPolygon.size() ? 0 : (currentVertexIndex + 1);
+				centerX = (newPolygon[currentVertexIndex].x() + newPolygon[evalUpperBoundIdx].x()) / 2;
+				centerY = (newPolygon[currentVertexIndex].y() + newPolygon[evalUpperBoundIdx].y()) / 2;
+				editModeEdgeList[currentVertexIndex]->setPosition(QPointF(centerX, centerY));
+
+				// cleanup / reset
+				previewCapturePath->reset();
+				QGuiApplication::restoreOverrideCursor();
+				currentVertexEllipseItem = nullptr;
+				editMode = EditMode::ACTIVE;
+			}
+			else if (editMode == EditMode::ADDPOINT)
+			{
+				auto *currentParentItem = qgraphicsitem_cast<ScmPreviewPolygonItem *>(currentEdgePathItem->parentItem());
+				QPolygonF newPolygon = currentParentItem->polygon();
+
+				// add new point to polygon
+				int currentEdgeIndex = std::find_if(editModeEdgeList.begin(), editModeEdgeList.end(),
+													[this](const ScmEditModePathItem* i) {
+														return i->getEdgeID() == currentEdgePathItem->getEdgeID();
+													}) - editModeEdgeList.begin();
+				newPolygon.insert(currentEdgeIndex + 1, mapToScene(event->pos()));
+				currentParentItem->setPolygon(newPolygon);
+
+				// add new vertexItem
+				//neues Vertex Item, eine neue Kante und alte Kante verschieben,
+				const auto vertexItem = new ScmEditModeEllipseItem(*std::max_element(editModeVertexList.begin(), editModeVertexList.end()) + 1);
+				editModeVertexList.insert(currentEdgeIndex + 1, vertexItem->getVertexID());
+				vertexItem->setPosition(newPolygon[currentEdgeIndex + 1]);
+				vertexItem->setParentItem(currentParentItem);
+				// reposition old edgeItem (predecessor)
+				int evalUpperBoundIdx = (currentEdgeIndex + 1) == newPolygon.size() ? 0 : (currentEdgeIndex + 1);
+				qreal centerX = (newPolygon[currentEdgeIndex].x() + newPolygon[evalUpperBoundIdx].x()) / 2;
+				qreal centerY = (newPolygon[currentEdgeIndex].y() + newPolygon[evalUpperBoundIdx].y()) / 2;
+				currentEdgePathItem->setPosition(QPointF(centerX, centerY));
+				// add new edgeItem (successor)
+				const auto edgeItem = new ScmEditModePathItem((*std::max_element(editModeEdgeList.begin(), editModeEdgeList.end(), [this]
+																				( ScmEditModePathItem* a,  ScmEditModePathItem* b)
+																				{ return a->getEdgeID() < b->getEdgeID(); }))->getEdgeID() + 1);
+				editModeEdgeList.insert(currentEdgeIndex + 1, edgeItem);
+				evalUpperBoundIdx = (currentEdgeIndex + 2) == newPolygon.size() ? 0 : (currentEdgeIndex + 2);
+				centerX = (newPolygon[currentEdgeIndex + 1].x() + newPolygon[evalUpperBoundIdx].x()) / 2;
+				centerY = (newPolygon[currentEdgeIndex + 1].y() + newPolygon[evalUpperBoundIdx].y()) / 2;
+				edgeItem->setPosition(QPointF(centerX, centerY));
+				edgeItem->setParentItem(currentParentItem);
+
+				// cleanup / reset
+				previewCapturePath->reset();
+				QGuiApplication::restoreOverrideCursor();
+				currentEdgePathItem->setVisible(true);
+				currentEdgePathItem = nullptr;
+				editMode = EditMode::ACTIVE;
+			}
 		}
 	}
-	else if (event->button() == Qt::RightButton)
+	else
 	{
-		// open dialog (range of time) + save and reset the current capture polygon
-		if(event->modifiers() & Qt::AltModifier)
+		if (event->button() == Qt::LeftButton)
 		{
-			if (currentCapturePolygon->polygon().size() < 3)
+			// open dialog (range of time) + save and reset the current capture polygon
+			if(event->modifiers() & Qt::AltModifier)
 			{
-				return;
+				if (currentCapturePolygon->polygon().size() < 3)
+				{
+					return;
+				}
+				// open dialog 'popup'
+				emit showAddPolyDialog();
 			}
-			// open dialog 'popup'
-			emit showAddPolyDialog();
+			// do not set a point after a scrolling operation (maybe the user unintentionally released SHIFT)
+			else if (!viewScrolling)
+			{
+				if (currentCapturePolygon->polygon().size() < 1)
+				{
+					previewCapturePath->setFirstPoint(mapToScene(event->pos()));
+				}
+				else
+				{
+					previewCapturePath->setLastPoint(mapToScene(event->pos()));
+				}
+
+				currentCapturePolygon->setPolygon(currentCapturePolygon->polygon() << mapToScene(event->pos()));
+			}
 		}
-		// do not set a point after a scrolling operation (maybe the user unintentionally released SHIFT)
-		else
+		else if (event->button() == Qt::RightButton)
 		{
-			if (currentCapturePolygon->polygon().size() < 1)
+			// open dialog (range of time) + save and reset the current capture polygon
+			if(event->modifiers() & Qt::AltModifier)
 			{
-				previewCapturePath->setFirstPoint(mapToScene(event->pos()));
+				if (currentCapturePolygon->polygon().size() < 3)
+				{
+					return;
+				}
+				// open dialog 'popup'
+				emit showAddPolyDialog();
 			}
+			// do not set a point after a scrolling operation (maybe the user unintentionally released SHIFT)
 			else
 			{
-				previewCapturePath->setLastPoint(mapToScene(event->pos()));
-			}
+				if (currentCapturePolygon->polygon().size() < 1)
+				{
+					previewCapturePath->setFirstPoint(mapToScene(event->pos()));
+				}
+				else
+				{
+					previewCapturePath->setLastPoint(mapToScene(event->pos()));
+				}
 
-			currentCapturePolygon->setPolygon(currentCapturePolygon->polygon() << mapToScene(event->pos()));
+				currentCapturePolygon->setPolygon(currentCapturePolygon->polygon() << mapToScene(event->pos()));
+			}
 		}
 	}
 
@@ -195,23 +319,101 @@ void ScmGeoLocGraphicsView::mouseReleaseEvent(QMouseEvent *event)
 
 void ScmGeoLocGraphicsView::keyPressEvent(QKeyEvent *event)
 {
-	// delete the last point in the capture poylgon (except the very first one)
-	if (event->key() == Qt::Key_Backspace)
+	if (!(editMode == EditMode::INACTIVE))
 	{
-		if (currentCapturePolygon->polygon().size() > 1)
+		if (editMode == EditMode::ACTIVE)
 		{
-			QPolygonF newPoly = currentCapturePolygon->polygon();
-			newPoly.removeLast();
+			if (event->key() == Qt::Key_C && event->modifiers() & Qt::ControlModifier)
+			{
+				temporaryPolygonCopy = polygonIdentifierMap.value(editModeBackupPolygon.first)->polygon();
+			}
+		}
+		else if (editMode == EditMode::MOVEPOINT)
+		{
+			if (event->key() == Qt::Key_Backspace)
+			{
+				auto *currentParentItem = qgraphicsitem_cast<ScmPreviewPolygonItem *>(currentVertexEllipseItem->parentItem());
+				if (currentParentItem->polygon().size() > 3)
+				{
+					// delete point in graphicsItem
+					QPolygonF newPolygon = currentParentItem->polygon();
+					int currentVertexIndex = std::find(editModeVertexList.begin(), editModeVertexList.end(), currentVertexEllipseItem->getVertexID()) - editModeVertexList.begin();
+					newPolygon.erase(std::begin(newPolygon) + currentVertexIndex);
+					currentParentItem->setPolygon(newPolygon);
+					editModeVertexList.erase(std::begin(editModeVertexList) + currentVertexIndex);
+					// update currentVertexIndex (only necessary if deleted point was last point in poly)
 
-			previewCapturePath->setLastPoint(newPoly.last());
-			currentCapturePolygon->setPolygon(newPoly);
+					// delete current vertexItem
+					delete currentVertexEllipseItem;
+					currentVertexEllipseItem = nullptr;
+
+					// delete successor
+					auto successor = editModeEdgeList[currentVertexIndex];
+					editModeEdgeList.erase(std::begin(editModeEdgeList) + currentVertexIndex);
+					delete successor;
+					// reposition predecessor
+					currentVertexIndex = currentVertexIndex == newPolygon.size() ? 0 : currentVertexIndex;;
+					int evalLowerBoundIdx = (currentVertexIndex - 1) < 0 ? newPolygon.size() - 1 : (currentVertexIndex - 1);
+					qreal centerX = (newPolygon[evalLowerBoundIdx].x() + newPolygon[currentVertexIndex].x()) / 2;
+					qreal centerY = (newPolygon[evalLowerBoundIdx].y() + newPolygon[currentVertexIndex].y()) / 2;
+					editModeEdgeList[evalLowerBoundIdx]->setPosition(QPointF(centerX, centerY));
+
+					QGuiApplication::restoreOverrideCursor();
+					previewCapturePath->reset();
+					editMode = EditMode::ACTIVE;
+				}
+
+			}
+			else if (event->key() == Qt::Key_Escape)
+			{
+				QGuiApplication::restoreOverrideCursor();
+				currentVertexEllipseItem->setVisible(true);
+				currentVertexEllipseItem = nullptr;
+				previewCapturePath->reset();
+				editMode = EditMode::ACTIVE;
+			}
+		}
+		else if (editMode == EditMode::ADDPOINT)
+		{
+			if (event->key() == Qt::Key_Escape)
+			{
+				QGuiApplication::restoreOverrideCursor();
+				currentEdgePathItem->setVisible(true);
+				currentEdgePathItem = nullptr;
+				previewCapturePath->reset();
+				editMode = EditMode::ACTIVE;
+			}
 		}
 	}
-	// abort current capture ---> reset all points (including first one)
-	else if (event->key() == Qt::Key_Escape)
+	else
 	{
-		currentCapturePolygon->setPolygon(QPolygonF());
-		previewCapturePath->reset();
+		// delete the last point in the capture poylgon (except the very first one)
+		if (event->key() == Qt::Key_Backspace)
+		{
+			if (currentCapturePolygon->polygon().size() > 1)
+			{
+				QPolygonF newPoly = currentCapturePolygon->polygon();
+				newPoly.removeLast();
+
+				previewCapturePath->setLastPoint(newPoly.last());
+				currentCapturePolygon->setPolygon(newPoly);
+			}
+		}
+		// abort current capture ---> reset all points (including first one)
+		else if (event->key() == Qt::Key_Escape)
+		{
+			currentCapturePolygon->setPolygon(QPolygonF());
+			previewCapturePath->reset();
+		}
+		if (event->key() == Qt::Key_V && event->modifiers() & Qt::ControlModifier)
+		{
+			if (!temporaryPolygonCopy.empty())
+			{
+				currentCapturePolygon->setPolygon(temporaryPolygonCopy);
+				previewCapturePath->setFirstPoint(temporaryPolygonCopy.first());
+				previewCapturePath->setLastPoint(temporaryPolygonCopy.last());
+			}
+		}
 	}
 }
 
@@ -278,10 +480,14 @@ void ScmGeoLocGraphicsView::updateCultureVisibility()
 
 void ScmGeoLocGraphicsView::reset()
 {
+	if (!(editMode == EditMode::INACTIVE))
+	{
+		exitEditMode(true);
+	}
 	// remove all polygons from the scene
 	for (auto it = polygonIdentifierMap.cbegin(); it != polygonIdentifierMap.cend(); ++it)
 	{
-		scene()->removeItem(it.value());
+		delete it.value();
 	}
 
 	// clear the map used for identifying the polygon items
@@ -354,6 +560,60 @@ void ScmGeoLocGraphicsView::removePolygon(int id)
 	// remove item from scene and delete the corresponding entry in polygonIdentifierMap
 	scene()->removeItem(polygonIdentifierMap.value(id));
 	polygonIdentifierMap.remove(id);
+}
+
+void ScmGeoLocGraphicsView::editPolygon(int id)
+{
+	// new item for every point of polygon
+	editModeBackupPolygon = QPair<int, QPolygonF>(id, polygonIdentifierMap.value(id)->polygon());
+	editModeVertexList = QList<int>();
+	editModeEdgeList = QList<ScmEditModePathItem *>();
+	for (int vertexIdx = 0; vertexIdx < editModeBackupPolygon.second.size(); vertexIdx++)
+	{
+		// add vertexItem
+		const auto vertexItem = new ScmEditModeEllipseItem(vertexIdx);
+		editModeVertexList.append(vertexItem->getVertexID());
+		vertexItem->setPosition(editModeBackupPolygon.second[vertexIdx]);
+		vertexItem->setParentItem(polygonIdentifierMap.value(id));
+		// add edgeItem
+		const auto edgeItem = new ScmEditModePathItem(vertexIdx);
+		editModeEdgeList.append(edgeItem);
+		// calc position from neighbouring vertices
+		int evalUpperBoundIdx = (vertexIdx + 1) == editModeBackupPolygon.second.size() ? 0 : (vertexIdx + 1);
+		qreal centerX = (editModeBackupPolygon.second[vertexIdx].x() + editModeBackupPolygon.second[evalUpperBoundIdx].x()) / 2;
+		qreal centerY = (editModeBackupPolygon.second[vertexIdx].y() + editModeBackupPolygon.second[evalUpperBoundIdx].y()) / 2;
+		edgeItem->setPosition(QPointF(centerX, centerY));
+		edgeItem->setParentItem(polygonIdentifierMap.value(id));
+	}
+
+	editMode = EditMode::ACTIVE;
+	setCursor(Qt::ArrowCursor);
+}
+
+void ScmGeoLocGraphicsView::exitEditMode(bool discardProgress)
+{
+	auto *backupPolygonItem = polygonIdentifierMap.value(editModeBackupPolygon.first);
+	if (discardProgress)
+	{
+		// restore old polygon geometry
+		backupPolygonItem->setPolygon(editModeBackupPolygon.second);
+	}
+	else
+	{
+		// convert the view coordinates to real world coordinates
+		QPolygonF transformedPolygon = convertViewToWGS84(backupPolygonItem->polygon());
+		emit addPolygonToCulture(scm::CulturePolygon(editModeBackupPolygon.first, backupPolygonItem->getStartTime(), QString::number(backupPolygonItem->getEndTime()), transformedPolygon));
+	}
+
+	// remove vertexItems
+	for (const auto &item : backupPolygonItem->childItems())
+	{
+		delete item;
+	}
+	previewCapturePath->reset();
+	QGuiApplication::restoreOverrideCursor();
+	editMode = EditMode::INACTIVE;
+	setCursor(Qt::CrossCursor);
 }
 
 QPolygonF ScmGeoLocGraphicsView::convertViewToWGS84(const QPolygonF &viewCoordinatePolygon)

@@ -304,13 +304,13 @@ void SkyCultureMapGraphicsView::mouseReleaseEvent( QMouseEvent *e )
 		if (scPolyItem)
 		{
 			const QString currentSkyCulture = scPolyItem->getSkyCultureId();
+			qInfo() << "oldC: " << oldSkyCulture << " currentC: " << currentSkyCulture;
 			// determine if a new culture is being selected
 			if (oldSkyCulture != currentSkyCulture)
 			{
 				// if so, select all polygons of the respective culture, emit the cultureSelected Signal and set the oldSkyCulture to currentSkyCulture
 				selectAllCulturePolygon(currentSkyCulture);
 				emit cultureSelected(currentSkyCulture);
-				oldSkyCulture = currentSkyCulture;
 			}
 		}
 	}
@@ -416,6 +416,7 @@ void SkyCultureMapGraphicsView::selectAllCulturePolygon(const QString &skyCultur
 			}
 		}
 	}
+	oldSkyCulture = skyCultureId;
 }
 
 void SkyCultureMapGraphicsView::selectCulture(const QString &skyCultureId, int startTime)

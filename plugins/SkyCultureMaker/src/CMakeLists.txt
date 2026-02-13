@@ -41,6 +41,10 @@ SET( SkyCultureMaker_SRCS
      gui/ScmPreviewPathItem.cpp
      gui/ScmPreviewPolygonItem.hpp
      gui/ScmPreviewPolygonItem.cpp
+     gui/ScmEditModeEllipseItem.hpp
+     gui/ScmEditModeEllipseItem.cpp
+     gui/ScmEditModePathItem.hpp
+     gui/ScmEditModePathItem.cpp
      gui/ScmPolygonInfoTreeItem.hpp
      gui/ScmPolygonInfoTreeItem.cpp
      gui/ScmMultiselectionComboBox.hpp

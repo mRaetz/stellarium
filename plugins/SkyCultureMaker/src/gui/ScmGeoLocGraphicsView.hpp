@@ -20,10 +20,22 @@
 #ifndef SCMGEOLOCGRAPHICSVIEW_HPP
 #define SCMGEOLOCGRAPHICSVIEW_HPP
 
+#include "ScmEditModeEllipseItem.hpp"
+#include "ScmEditModePathItem.hpp"
 #include "ScmPreviewPathItem.hpp"
 #include "ScmPreviewPolygonItem.hpp"
 #include "types/CulturePolygon.hpp"
 #include <QGraphicsView>
+
+#include <QMetaType>
+
+enum class EditMode
+{
+	INACTIVE = 0,
+	ACTIVE,
+	MOVEPOINT,
+	ADDPOINT
+};
 
 //! @class ScmGeoLocGraphicsView
 //! Special GraphicsView that allows the User to digitize polygons
@@ -36,6 +48,7 @@ public:
 
 	void addCurrentPoly(int startTime, int endTime);
 	void removePolygon(int id);
+	void editPolygon(int id);
 	void reset();
 
 public slots:
@@ -53,6 +66,13 @@ public slots:
 	 */
 	void selectPolygon(int id);
 
+	/**
+	 * @brief Ends the editMode. If discardProgress is true, all changes will be discarded.
+	 *
+	 * @param Value indicating wether the changes made should be discarded.
+	 */
+	void exitEditMode(bool discardProgress);
+
 signals:
 	void timeValueChanged(int year);
 	void showAddPolyDialog();
@@ -69,13 +89,25 @@ protected:
 private:
 	/// Flag that indicates if the view is currently navigated by the user.
 	bool viewScrolling;
-
 	bool firstShow;
+	EditMode editMode;
 	int currentYear;
 	QPoint mouseLastXY;
 
 	/// Bounding rect of the map.
 	QRectF defaultRect;
+
+	/// Temporary Polygon that is used for copy & paste.
+	QPolygonF temporaryPolygonCopy;
+
+	/// Backup of original polygon for edit mode. (consists of itemID and respective geometry)
+	QPair<int, QPolygonF> editModeBackupPolygon;
+
+	/// List that holds all active vertexIDs in editMode. (used for identification)
+	QList<int> editModeVertexList;
+
+	/// List that holds all active edgeIDs in editMode. (used for identification)
+	QList<ScmEditModePathItem *> editModeEdgeList;
 
 	/// Map that pairs an identifier with each item on the map. (used for removal and selection)
 	QMap<int, ScmPreviewPolygonItem *> polygonIdentifierMap;
@@ -85,6 +117,12 @@ private:
 
 	/// PathItem that displays a preview of the current polygon.
 	ScmPreviewPathItem *previewCapturePath = new ScmPreviewPathItem();
+
+	/// EllipseItem that is actively being edited.
+	ScmEditModeEllipseItem *currentVertexEllipseItem;
+
+	/// PathItem that is actively being used to add a new point.
+	ScmEditModePathItem *currentEdgePathItem;
 
 	/**
 	 * @brief Change the visibility of all polygons on the map.

@@ -89,10 +89,14 @@ private slots:
 	void updateEditConstellationButton();
 	void updateRemoveConstellationButton();
 	void updateRemovePolygonButton();
+	void updateEditPolygonButton();
 	void saveLicense();
 	void updateSkyCultureTimeValue(int year);
 	void addLocation(const scm::CulturePolygon polygon);
-	void removeLocation();
+	void removeSelectedLocation();
+	void editSelectedLocation();
+	void saveLocationChanges();
+	void discardLocationChanges();
 	void selectLocation(QTreeWidgetItem *item);
 	void showAddPolygon();
 	void hideAddPolygon();
