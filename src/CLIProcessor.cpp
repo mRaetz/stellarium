@@ -104,8 +104,6 @@ void CLIProcessor::parseCLIArgsPreConfig(const QStringList& argList)
 			  << "--config-file (or -c)   : Use an alternative name for the config file\n"
 			  << "--log-file (or -l)      : Use an alternative name for the log file\n"
 			  << "--user-dir (or -u)      : Use an alternative user data directory\n"
-			  << "--verbose               : Even more diagnostic output in logfile \n"
-			  << "                          (esp. multimedia handling)\n"
 			  << "--opengl-compat (or -C) : Request OpenGL Compatibility profile\n"
 			  << "                          May help for certain driver configurations.\n"
 			  << "--low-graphics (or -L)  : Force low-graphics mode\n"
@@ -118,6 +116,9 @@ void CLIProcessor::parseCLIArgsPreConfig(const QStringList& argList)
 			  << "                          and want to send a bug report\n"
 			  << "--full-screen (or -f)   : With argument \"yes\" or \"no\" over-rides\n"
 			  << "                          the full screen setting in the config file\n"
+	     #ifdef Q_OS_WIN
+			  << "--no-screensaver (or -F): Inhibits screen saver when in fullscreen mode\n"
+	     #endif
 			  << "--screenshot-dir        : Specify directory to save screenshots\n"
 			  << "--startup-script        : Specify name of startup script\n"
 			  << "--home-planet           : Specify observer planet (English name)\n"
@@ -151,9 +152,10 @@ void CLIProcessor::parseCLIArgsPreConfig(const QStringList& argList)
 		exit(0);
 	}
 
-	if (argsGetOption(argList, "", "--verbose"))
-		qApp->setProperty("verbose", true);
-
+#ifdef Q_OS_WIN
+	if (argsGetOption(argList, "-F", "--no-screensaver"))
+		qApp->setProperty("onetime_inhibit_screensaver", true);
+#endif
 	if (argsGetOption(argList, "-C", "--opengl-compat"))
 		qApp->setProperty("onetime_opengl_compat", true);
 

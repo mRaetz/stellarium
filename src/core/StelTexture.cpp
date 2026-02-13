@@ -39,6 +39,8 @@
 # define GL_TEXTURE_MAX_ANISOTROPY 0x84FE
 #endif
 
+Q_LOGGING_CATEGORY(Tex,"stel.Texture", QtInfoMsg)
+
 // Let's try to keep 120 FPS even if textures are loaded every frame
 // (60 FPS if all the other computations take the same time per frame).
 constexpr double MAX_LOAD_NANOSEC_PER_FRAME = 1e9 / 120;
@@ -68,8 +70,8 @@ StelTexture::~StelTexture()
 		if (gl->glIsTexture(id)==GL_FALSE)
 		{
 			GLenum err = gl->glGetError();
-			qWarning() << "StelTexture::~StelTexture() tried to delete invalid texture with ID="
-			           << id << "Current GL ERROR status is" << err << "(" << StelOpenGL::getGLErrorText(err) << ")";
+			qCWarning(Tex) << "StelTexture::~StelTexture() tried to delete invalid texture with ID="
+				       << id << "Current GL ERROR status is" << err << "(" << StelOpenGL::getGLErrorText(err) << ")";
 		}
 		else
 		{
@@ -79,15 +81,14 @@ StelTexture::~StelTexture()
 			glSize = 0;
 		}
 #ifndef NDEBUG
-		if (qApp->property("verbose") == true)
-			qDebug() << "Deleted StelTexture" << id << ", total memory usage "
-			         << textureMgr->glMemoryUsage / (1024.0 * 1024.0)<<"MB";
+		qCDebug(Tex) << "Deleted StelTexture" << id << ", total memory usage "
+			     << textureMgr->glMemoryUsage / (1024.0 * 1024.0)<<"MB";
 #endif
 		id = 0;
 	}
 	else if (id)
 	{
-		qWarning()<<"Cannot delete texture"<<id<<", no GL context";
+		qCWarning(Tex)<<"Cannot delete texture"<<id<<", no GL context";
 	}
 	if (networkReply)
 	{
@@ -152,7 +153,8 @@ StelTexture::GLData StelTexture::loadFromPath(const QString &path, const int dec
 		if (img.isNull())
 		{
 			QImageReader::ImageReaderError error=imgReader.error();
-			qCritical() << "Error reading image file " << path << ":" << imgReader.errorString();
+			qCritical().noquote().nospace() << "Failed to read texture image "
+			                                << path << ": " << imgReader.errorString();
 
 			if (error==QImageReader::InvalidDataError)
 				qCritical() << "This may also indicate an out-of-memory error.";
@@ -176,11 +178,20 @@ StelTexture::GLData StelTexture::loadFromPath(const QString &path, const int dec
 	}
 }
 
-StelTexture::GLData StelTexture::loadFromData(const QByteArray& data, const int decimateBy)
+StelTexture::GLData StelTexture::loadFromData(const QByteArray& data, const QString& path, const int decimateBy)
 {
 	try
 	{
-		return imageToGLData(QImage::fromData(data), decimateBy);
+		auto data_ = data;
+		QBuffer buf(&data_);
+		QImageReader reader(&buf);
+		const auto img = reader.read();
+		if (img.isNull())
+		{
+			qCritical().noquote().nospace() << "Failed to read texture image "
+			                                << path << ": " << reader.errorString();
+		}
+		return imageToGLData(img, decimateBy);
 	}
 	catch(std::exception& ex)  //this catches out-of-memory errors from file conversion
 	{
@@ -239,7 +250,7 @@ void StelTexture::waitForLoaded()
 {
 	if(networkReply)
 	{
-		qWarning()<<"StelTexture::waitForLoaded called for a network-loaded texture"<<fullPath;
+		qCWarning(Tex) << "StelTexture::waitForLoaded called for a network-loaded texture"<<fullPath;
 		Q_ASSERT(0);
 	}
 	if(loader)
@@ -300,8 +311,7 @@ void StelTexture::onNetworkReply()
 		if(data.isEmpty()) //prevent starting the loader when there is nothing to load
 			reportError(QString("Empty result received for URL: %1").arg(networkReply->url().toString()));
 		else
-			startAsyncLoader(static_cast<GLData(*)(const QByteArray&, const int)>(loadFromData),
-			                 data, loadParams.decimation);
+			startAsyncLoader(&StelTexture::loadFromData, data, fullPath, loadParams.decimation);
 	}
 	else
 		reportError(networkReply->errorString());
@@ -341,15 +351,15 @@ QByteArray StelTexture::convertToGLFormat(QImage image, GLint& format, GLint& ty
 
 #ifndef NDEBUG
 	if (decimate>1)
-		qDebug() << "decimated texture width: " << image.width() << "/" << decimate << "->" << width;
+		qCDebug(Tex) << "decimated texture width: " << image.width() << "/" << decimate << "->" << width;
 #endif
 	if(width != image.width() || height != image.height())
 	{
 		if (decimate == 1 || width > glInfo.maxTextureSize || height > glInfo.maxTextureSize)
-			qWarning().nospace() << "Got a texture with too large dimensions: "
-			                     << image.width() << "x" << image.height()
-			                     << ", while maximum size is " << glInfo.maxTextureSize
-			                     << ". Shrinking to fit in the limit.";
+			qCWarning(Tex).nospace() << "Got a texture with too large dimensions: "
+						 << image.width() << "x" << image.height()
+						 << ", while maximum size is " << glInfo.maxTextureSize
+						 << ". Shrinking to fit in the limit.";
 		image = image.scaled(width, height, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 	}
 
@@ -510,10 +520,9 @@ bool StelTexture::glLoad(const GLData& data)
 	textureMgr->idMap.insert(id,sharedFromThis());
 
 #ifndef NDEBUG
-	if (qApp->property("verbose") == true)
-		qDebug() << "StelTexture" << id << "of size" << width << u8"×" << height
-		         << "uploaded, total memory usage "
-		         << textureMgr->glMemoryUsage / (1024.0 * 1024.0) << "MB";
+	qCDebug(Tex) << "StelTexture" << id << "of size" << width << u8"×" << height
+		     << "uploaded, total memory usage "
+		     << textureMgr->glMemoryUsage / (1024.0 * 1024.0) << "MB";
 #endif
 
 	// Report success of texture loading

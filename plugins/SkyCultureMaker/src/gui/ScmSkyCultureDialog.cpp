@@ -22,12 +22,30 @@
  */
 
 #include "ScmSkyCultureDialog.hpp"
-#include "PolygonInfoTreeItem.hpp"
+#include "ScmPolygonInfoTreeItem.hpp"
 #include "types/Region.hpp"
 #include "ui_scmSkyCultureDialog.h"
 #include <cassert>
-#include <qtooltip.h>
+#include <QStyledItemDelegate>
 #include <QDebug>
+
+namespace
+{
+
+class NoEditDelegate : public QStyledItemDelegate
+{
+public:
+	NoEditDelegate(QObject* parent = nullptr)
+		: QStyledItemDelegate(parent)
+	{
+	}
+	QWidget* createEditor(QWidget*, const QStyleOptionViewItem&, const QModelIndex&) const override
+	{
+		return nullptr;
+	}
+};
+
+}
 
 ScmSkyCultureDialog::ScmSkyCultureDialog(SkyCultureMaker *maker)
 	: StelDialogSeparate("ScmSkyCultureDialog")
@@ -44,7 +62,7 @@ ScmSkyCultureDialog::~ScmSkyCultureDialog()
 	qDebug() << "SkyCultureMaker: Unloaded the ScmSkyCultureDialog";
 }
 
-void ScmSkyCultureDialog::setConstellations(std::vector<scm::ScmConstellation> *constellations)
+void ScmSkyCultureDialog::setConstellations(std::vector<std::unique_ptr<scm::ScmConstellation>> *constellations)
 {
 	ScmSkyCultureDialog::constellations = constellations;
 	if (ui && dialog && constellations != nullptr)
@@ -53,7 +71,7 @@ void ScmSkyCultureDialog::setConstellations(std::vector<scm::ScmConstellation> *
 		for (const auto &constellation : *constellations)
 		{
 			// Add the constellation to the list widget
-			ui->constellationsList->addItem(getDisplayNameFromConstellation(constellation));
+			ui->constellationsList->addItem(getDisplayNameFromConstellation(*constellation));
 		}
 	}
 }
@@ -77,12 +95,28 @@ void ScmSkyCultureDialog::retranslate()
 
 void ScmSkyCultureDialog::close()
 {
-	maker->setHideOrAbortMakerDialogVisibility(true);
+	maker->setDialogVisibility(scm::DialogID::HideOrAbortMakerDialog, true);
+}
+
+bool ScmSkyCultureDialog::eventFilter(QObject *obj, QEvent *event)
+{
+	if (obj == dialog && event->type() == QEvent::KeyPress)
+	{
+		QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+		if (keyEvent->key() == Qt::Key_Escape)
+		{
+			// escape should not close the dialog directly
+			maker->setDialogVisibility(scm::DialogID::HideOrAbortMakerDialog, true);
+			return true;
+		}
+	}
+	return StelDialogSeparate::eventFilter(obj, event);
 }
 
 void ScmSkyCultureDialog::createDialogContent()
 {
 	ui->setupUi(dialog);
+	dialog->installEventFilter(this);
 
 	connect(&StelApp::getInstance(), SIGNAL(languageChanged()), this, SLOT(retranslate()));
 	connect(ui->titleBar, SIGNAL(movedTo(QPoint)), this, SLOT(handleMovedTo(QPoint)));
@@ -146,7 +180,7 @@ void ScmSkyCultureDialog::createDialogContent()
 	for (const auto &classification : scm::CLASSIFICATIONS)
 	{
 		// add name, classification type
-		ui->classificationCB->addItem(classification.second.name, QVariant::fromValue(classification.first));
+                ui->classificationCB->addItem(qc_(classification.second.name, "sky culture classification"), QVariant::fromValue(classification.first));
 		// set the classification description as tooltip
 		int index = ui->classificationCB->count() - 1;
 		ui->classificationCB->setItemData(index, classification.second.description, Qt::ToolTipRole);
@@ -163,14 +197,14 @@ void ScmSkyCultureDialog::createDialogContent()
 		ui->regionComboBox->addItem(region.second.name, QVariant::fromValue(region.first), region.second.description);
 	}
 	ui->regionComboBox->setDefaultText("None");
-	connect(ui->regionComboBox, &MultiselectionComboBox::checkedItemsChanged, this, &ScmSkyCultureDialog::checkMutExRegions);
+	connect(ui->regionComboBox, &ScmMultiselectionComboBox::checkedItemsChanged, this, &ScmSkyCultureDialog::checkMutExRegions);
 
 	// Geographical Location Tab
 
-	initSkycultureTime();
+	initSkyCultureTime();
 
 	connect(ui->skyCultureTimeSlider, &QSlider::valueChanged, this, &ScmSkyCultureDialog::updateSkyCultureTimeValue);
-	connect(ui->skyCultureCurrentTimeSpinBox, &QSpinBox::valueChanged, this, &ScmSkyCultureDialog::updateSkyCultureTimeValue);
+	connect(ui->skyCultureCurrentTimeSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &ScmSkyCultureDialog::updateSkyCultureTimeValue);
 	connect(ui->scmGeoLocGraphicsView, &ScmGeoLocGraphicsView::timeValueChanged, this, &ScmSkyCultureDialog::updateSkyCultureTimeValue);
 
 	connect(ui->scmGeoLocGraphicsView, &ScmGeoLocGraphicsView::showAddPolyDialog, this, &ScmSkyCultureDialog::showAddPolygon);
@@ -179,36 +213,60 @@ void ScmSkyCultureDialog::createDialogContent()
 	// polygon info options
 
 	connect(ui->polygonInfoTreeWidget, &QTreeWidget::itemClicked, this, &ScmSkyCultureDialog::selectLocation);
-	connect(ui->removePolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::removeLocation);
-	connect(ui->polygonInfoTreeWidget, &QTreeWidget::itemSelectionChanged, this, &ScmSkyCultureDialog::updateRemovePolygonButton);
+	connect(ui->removePolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::removeSelectedLocation);
+	connect(ui->editPolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::editSelectedLocation);
+	connect(ui->saveEditPolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::saveLocationChanges);
+	connect(ui->abortEditPolygonButton, &QPushButton::clicked, this, &ScmSkyCultureDialog::discardLocationChanges);
+	connect(ui->polygonInfoTreeWidget, &QTreeWidget::itemSelectionChanged, this, [this]() {
+		updateRemovePolygonButton();
+		updateEditPolygonButton();
+	});
 	ui->removePolygonButton->setEnabled(false);
+	ui->editPolygonButton->setEnabled(false);
+	ui->saveEditPolygonButton->setVisible(false);
+	ui->abortEditPolygonButton->setVisible(false);
 
 	ui->polygonInfoTreeWidget->header()->setDefaultAlignment(Qt::AlignCenter);
 	ui->polygonInfoTreeWidget->header()->setSectionsMovable(false);
 	ui->polygonInfoTreeWidget->header()->setSectionResizeMode(QHeaderView::Stretch);
 
-	QString helpButtonToolTip = q_("Controls") + ":\n" +
-								"LMB: Set a new vertex for the active polygon\n" +
-								"SHIFT + LMB : Navigate the Map\n" +
-								"ALT + LMB : Save the active polygon\n" +
-								"DELETE : Remove the last point of the active polygon\n" +
-								"ESC: Remove all points of the active polygon\n" +
-								"Scroll UP / DOWN : Zoom in / out of the map\n" +
-								"CTRL + Scroll : Fine grained zoom";
-	// the positioning of the tooltip is eyeballes to sit in the bottom right corner of the map (works for now but is not practical)
-	connect(ui->helpToolButton, &QToolButton::clicked, this, [this, helpButtonToolTip]()
-			{ QToolTip::showText(ui->skyCultureTimeOptionsGroupBox->mapToGlobal(QPoint(ui->skyCultureTimeOptionsGroupBox->width() - 330, -179)), helpButtonToolTip, ui->helpToolButton); });
+	// label / tooltip for controls
+	ui->helpLabel->setText(mapToolTip);
+	ui->helpLabel->raise();
+	ui->helpLabel->hide();
+
+	connect(ui->mapHelpToolButton, &QToolButton::clicked, this, [this]() {
+		if (ui->helpLabel->isVisible())
+		{
+			ui->helpLabel->hide();
+		}
+		else
+		{
+			ui->helpLabel->show();
+		}
+	});
+	connect(ui->helpLabel, &QPushButton::clicked, this, [this]() { ui->helpLabel->hide(); });
 
 	// dialog popup for time limits
 
 	// prevent startTimeSpinBox value to be greater than endTimeSpinBox and vice versa
-	connect(ui->startTimeSpinBox, &QSpinBox::editingFinished, this, &ScmSkyCultureDialog::changeStartTime);
-	connect(ui->endTimeSpinBox, &QSpinBox::editingFinished, this, &ScmSkyCultureDialog::changeEndTime);
+	connect(ui->startTimeSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), ui->endTimeSpinBox,
+	        &ScmAdvancedSpinBox::setMinimum);
+	connect(ui->endTimeSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), ui->startTimeSpinBox,
+	        &ScmAdvancedSpinBox::setMaximum);
 
 	connect(ui->addPolygonDialogButtonBox, &QDialogButtonBox::accepted, this, &ScmSkyCultureDialog::confirmAddPolygon);
 	connect(ui->addPolygonDialogButtonBox, &QDialogButtonBox::rejected, this, &ScmSkyCultureDialog::cancelAddPolygon);
 
 	hideAddPolygon();
+
+	resetReferences();
+	ui->referencesList->setItemDelegateForColumn(0, new NoEditDelegate(ui->referencesList));
+	connect(ui->addRefBtn, &QPushButton::clicked, this, &ScmSkyCultureDialog::addNewReference);
+	connect(ui->removeRefBtn, &QPushButton::clicked, this, &ScmSkyCultureDialog::removeReference);
+	connect(ui->moveRefUpBtn, &QPushButton::clicked, this, &ScmSkyCultureDialog::moveCurrentReferenceUp);
+	connect(ui->moveRefDownBtn, &QPushButton::clicked, this, &ScmSkyCultureDialog::moveCurrentReferenceDown);
+	connect(ui->referencesList, &QTreeWidget::currentItemChanged, this, &ScmSkyCultureDialog::updateReferencesButtons);
 }
 
 void ScmSkyCultureDialog::handleFontChanged()
@@ -236,9 +294,13 @@ void ScmSkyCultureDialog::saveSkyCulture()
 		return;
 	}
 	// check if description is complete
-	if (!desc.isComplete())
+	const auto incompFieldsList = desc.getIncompleteFieldsList();
+	if (!incompFieldsList.isEmpty())
 	{
-		maker->showUserWarningMessage(dialog, ui->titleBar->title(), q_("The sky culture description is not complete. Please fill in all required fields."));
+		auto msg = q_("The sky culture description is not complete. The following fields are not filled correctly:\n");
+		for (const auto& field : incompFieldsList)
+			msg += u8" \u2022 " + field + "\n";
+		maker->showUserWarningMessage(dialog, ui->titleBar->title(), msg);
 		return;
 	}
 
@@ -253,7 +315,7 @@ void ScmSkyCultureDialog::saveSkyCulture()
 	}
 
 	// open export dialog
-	maker->setSkyCultureExportDialogVisibility(true);
+	maker->setDialogVisibility(scm::DialogID::SkyCultureExportDialog, true);
 }
 
 void ScmSkyCultureDialog::editSelectedConstellation()
@@ -270,14 +332,14 @@ void ScmSkyCultureDialog::editSelectedConstellation()
 		QString selectedConstellationId = "";
 		for (const auto &constellation : *constellations)
 		{
-			if (constellationName == (getDisplayNameFromConstellation(constellation)))
+			if (constellationName == (getDisplayNameFromConstellation(*constellation)))
 			{
-				selectedConstellationId = constellation.getId();
+				selectedConstellationId = constellation->getId();
 				break;
 			}
 		}
 
-		maker->openConstellationDialog(selectedConstellationId);
+		openConstellationDialog(selectedConstellationId);
 	}
 }
 
@@ -295,9 +357,9 @@ void ScmSkyCultureDialog::removeSelectedConstellation()
 		QString selectedConstellationId = "";
 		for (const auto &constellation : *constellations)
 		{
-			if (constellationName == (getDisplayNameFromConstellation(constellation)))
+			if (constellationName == (getDisplayNameFromConstellation(*constellation)))
 			{
-				selectedConstellationId = constellation.getId();
+				selectedConstellationId = constellation->getId();
 				break;
 			}
 		}
@@ -314,8 +376,33 @@ void ScmSkyCultureDialog::removeSelectedConstellation()
 
 void ScmSkyCultureDialog::openConstellationDialog(bool isDarkConstellation)
 {
-	maker->setConstellationDialogVisibility(true);
+	maker->setDialogVisibility(scm::DialogID::ConstellationDialog, true);
 	maker->setConstellationDialogIsDarkConstellation(isDarkConstellation);
+	maker->setIsLineDrawEnabled(true);
+	updateAddConstellationButtons(false);
+}
+
+void ScmSkyCultureDialog::openConstellationDialog(const QString &constellationId)
+{
+	scm::ScmSkyCulture *skyCulture = maker->getCurrentSkyCulture();
+	if (skyCulture == nullptr)
+	{
+		qDebug() << "SkyCultureMaker: Current Sky Culture is not initialized.";
+		return;
+	}
+
+	scm::ScmConstellation *constellation = skyCulture->getConstellation(constellationId);
+	if (constellation != nullptr)
+	{
+		maker->loadDialogFromConstellation(constellation);
+		maker->setDialogVisibility(scm::DialogID::ConstellationDialog, true);
+		maker->setIsLineDrawEnabled(true);
+		updateAddConstellationButtons(false);
+	}
+	else
+	{
+		qWarning() << "SkyCultureMaker: Constellation with ID" << constellationId << "not found.";
+	}
 }
 
 void ScmSkyCultureDialog::setIdFromName(QString &name)
@@ -326,8 +413,11 @@ void ScmSkyCultureDialog::setIdFromName(QString &name)
 
 void ScmSkyCultureDialog::updateAddConstellationButtons(bool enabled)
 {
-	ui->AddConstellationBtn->setEnabled(enabled);
-	ui->AddDarkConstellationBtn->setEnabled(enabled);
+	if(ui && dialog)
+	{
+		ui->AddConstellationBtn->setEnabled(enabled);
+		ui->AddDarkConstellationBtn->setEnabled(enabled);
+	}
 }
 
 void ScmSkyCultureDialog::updateEditConstellationButton()
@@ -366,9 +456,158 @@ void ScmSkyCultureDialog::updateRemovePolygonButton()
 	}
 }
 
+void ScmSkyCultureDialog::updateEditPolygonButton()
+{
+	if (!ui->polygonInfoTreeWidget->selectedItems().isEmpty())
+	{
+		ui->editPolygonButton->setEnabled(true);
+	}
+	else
+	{
+		ui->editPolygonButton->setEnabled(false);
+	}
+}
+
 QString ScmSkyCultureDialog::getDisplayNameFromConstellation(const scm::ScmConstellation &constellation) const
 {
 	return constellation.getEnglishName() + " (" + constellation.getId() + ")";
+}
+
+void ScmSkyCultureDialog::resetReferences()
+{
+	if (ui && dialog)
+	{
+		ui->referencesList->clear();
+		ui->moveRefUpBtn->setEnabled(false);
+		ui->moveRefDownBtn->setEnabled(false);
+		ui->removeRefBtn->setEnabled(false);
+	}
+}
+
+void ScmSkyCultureDialog::updateReferencesButtons()
+{
+	const auto count = ui->referencesList->topLevelItemCount();
+	const auto currentItem = ui->referencesList->currentItem();
+
+	ui->removeRefBtn->setDisabled(count == 0 || !currentItem);
+
+	if (count <= 1 || !currentItem)
+	{
+		ui->moveRefUpBtn->setDisabled(true);
+		ui->moveRefDownBtn->setDisabled(true);
+		return;
+	}
+	const auto rootItem = ui->referencesList->invisibleRootItem();
+	Q_ASSERT(rootItem);
+	const auto row = rootItem->indexOfChild(currentItem);
+	ui->moveRefUpBtn->setDisabled(row == 0);
+	ui->moveRefDownBtn->setDisabled(row == count - 1);
+}
+
+void ScmSkyCultureDialog::updateReferencesNumeration()
+{
+	for (int row = 0; row < ui->referencesList->topLevelItemCount(); ++row)
+	{
+		ui->referencesList->topLevelItem(row)->setText(0, QString("#%1").arg(row + 1));
+	}
+}
+
+void ScmSkyCultureDialog::addNewReference()
+{
+	const auto num = ui->referencesList->topLevelItemCount() + 1;
+	const QStringList labels{QString("#%1").arg(num), ""};
+	const auto item = new QTreeWidgetItem(labels);
+	item->setFlags(item->flags() | Qt::ItemIsEditable);
+	ui->referencesList->addTopLevelItem(item);
+	ui->referencesList->setCurrentItem(item, 1);
+	ui->referencesList->resizeColumnToContents(0);
+	ui->referencesList->editItem(item, 1);
+
+	updateReferencesButtons();
+}
+
+void ScmSkyCultureDialog::removeReference()
+{
+	const auto currentItem = ui->referencesList->currentItem();
+	if (!currentItem) return;
+	const auto rootItem = ui->referencesList->invisibleRootItem();
+	Q_ASSERT(rootItem);
+	const auto row = rootItem->indexOfChild(currentItem);
+	const auto itemToRemove = ui->referencesList->takeTopLevelItem(row);
+	Q_ASSERT(itemToRemove == currentItem); Q_UNUSED(itemToRemove);
+	updateReferencesNumeration();
+	updateReferencesButtons();
+}
+
+void ScmSkyCultureDialog::moveCurrentReferenceUp()
+{
+	const auto currentItem = ui->referencesList->currentItem();
+	if (!currentItem) return;
+
+	const auto rootItem = ui->referencesList->invisibleRootItem();
+	Q_ASSERT(rootItem);
+	const auto row = rootItem->indexOfChild(currentItem);
+	if (row == 0) return;
+
+	const auto itemToMove = ui->referencesList->takeTopLevelItem(row);
+	Q_ASSERT(itemToMove == currentItem);
+	ui->referencesList->insertTopLevelItem(row-1, itemToMove);
+	ui->referencesList->setCurrentItem(itemToMove, 1);
+
+	updateReferencesNumeration();
+	updateReferencesButtons();
+}
+
+void ScmSkyCultureDialog::moveCurrentReferenceDown()
+{
+	const auto currentItem = ui->referencesList->currentItem();
+	if (!currentItem) return;
+
+	const auto rootItem = ui->referencesList->invisibleRootItem();
+	Q_ASSERT(rootItem);
+	const auto row = rootItem->indexOfChild(currentItem);
+	const auto count = ui->referencesList->topLevelItemCount();
+	if (row == count - 1) return;
+
+	const auto itemToMove = ui->referencesList->takeTopLevelItem(row);
+	Q_ASSERT(itemToMove == currentItem);
+	ui->referencesList->insertTopLevelItem(row+1, itemToMove);
+	ui->referencesList->setCurrentItem(itemToMove, 1);
+
+	updateReferencesNumeration();
+	updateReferencesButtons();
+}
+
+QString ScmSkyCultureDialog::makeConstellationsSection() const
+{
+	if (!constellations) return {};
+
+	QString text;
+	for (const auto& constellation : *constellations)
+	{
+		const auto descr = constellation->getDescription().trimmed();
+		if (descr.isEmpty()) continue;
+		if (!text.isEmpty())
+			text += "\n\n";
+		text += "##### ";
+		text += constellation->getEnglishName();
+		text += "\n\n";
+		text += descr;
+	}
+	return text.trimmed();
+}
+
+QString ScmSkyCultureDialog::makeReferencesSection() const
+{
+	QString refs;
+	for (int row = 0; row < ui->referencesList->topLevelItemCount(); ++row)
+	{
+		const auto text = ui->referencesList->topLevelItem(row)->text(1);
+		refs += QString(" - [#%1]: %2\n").arg(row + 1).arg(text.trimmed());
+	}
+	if (!refs.isEmpty())
+		refs.chop(1); // remove the final newline char
+	return refs;
 }
 
 scm::Description ScmSkyCultureDialog::getDescriptionFromTextEdit() const
@@ -385,9 +624,9 @@ scm::Description ScmSkyCultureDialog::getDescriptionFromTextEdit() const
 	desc.milkyWay     = ui->milkyWayTE->toPlainText();
 	desc.otherObjects = ui->otherObjectsTE->toPlainText();
 
-	desc.constellations   = ui->constellationsDescTE->toPlainText();
+	desc.constellations = makeConstellationsSection();
 
-	desc.references       = ui->referencesTE->toPlainText();
+	desc.references       = makeReferencesSection();
 
 	desc.authors            = ui->authorsTE->toPlainText();
 	desc.about              = ui->aboutTE->toPlainText();
@@ -400,11 +639,6 @@ scm::Description ScmSkyCultureDialog::getDescriptionFromTextEdit() const
 	for (const auto &itemData : ui->regionComboBox->checkedItemsData())
 	{
 		desc.region.push_back(itemData.value<scm::RegionType>());
-	}
-
-	for (auto i : desc.region)
-	{
-		qInfo() << scm::REGIONS.at(i).name;
 	}
 
 	return desc;
@@ -425,8 +659,7 @@ void ScmSkyCultureDialog::resetDialog()
 		ui->zodiacTE->clear();
 		ui->milkyWayTE->clear();
 		ui->otherObjectsTE->clear();
-		ui->constellationsDescTE->clear();
-		ui->referencesTE->clear();
+		resetReferences();
 		ui->acknowledgementsTE->clear();
 
 		ui->licenseCB->setCurrentIndex(0);
@@ -437,12 +670,16 @@ void ScmSkyCultureDialog::resetDialog()
 		setIdFromName(name);
 		resetConstellations();
 		maker->setSkyCultureDescription(getDescriptionFromTextEdit());
+
+		updateAddConstellationButtons(true);
+		updateEditConstellationButton();
 		updateRemoveConstellationButton();
 
 		ui->polygonCountValueLabel->setText(QString::number(0));
 		ui->cultureStartTimeValueLabel->setText("");
 		ui->cultureEndTimeValueLabel->setText("");
-		initSkycultureTime(); // reuse init function to set skyCultureTimeSlider / skyCultureCurrentTimeSpinBox
+		initSkyCultureTime(); // reuse init function to set skyCultureTimeSlider / skyCultureCurrentTimeSpinBox
+		discardLocationChanges(); // exit edit mode and discard changes
 		ui->polygonInfoTreeWidget->clear(); // reset the location list
 		ui->scmGeoLocGraphicsView->reset(); // reset the map used for digitizing
 		updateRemovePolygonButton();
@@ -451,11 +688,25 @@ void ScmSkyCultureDialog::resetDialog()
 
 void ScmSkyCultureDialog::showAddPolygon()
 {
+	ui->scmGeoLocGraphicsView->clearFocus();
+
+	// show 'popup' dialog
 	ui->mapForegroundWidget->setVisible(true);
 	ui->addPolygonFrame->setVisible(true);
 
-	addPolygonSetTimeLimits(ui->skyCultureCurrentTimeSpinBox->minimum(), ui->skyCultureCurrentTimeSpinBox->maximum());
-	addPolygonSetStartTime(ui->skyCultureCurrentTimeSpinBox->value());
+	// set start / end time SpinBoxes to the respective values of currentTimeSpinBox
+	ui->startTimeSpinBox->setMinimum(ui->skyCultureCurrentTimeSpinBox->minimum());
+	ui->startTimeSpinBox->setUseCustomMaximum(true);
+	ui->startTimeSpinBox->setCustomMaximum(ui->skyCultureCurrentTimeSpinBox->maximum());
+	ui->endTimeSpinBox->setMaximum(ui->skyCultureCurrentTimeSpinBox->maximum() + 1); // + 1 for still existing cultures
+
+	// connection in createDialogContent correctly sets the min / max when value is changed
+	ui->endTimeSpinBox->setValue(ui->skyCultureCurrentTimeSpinBox->value());
+	ui->startTimeSpinBox->setValue(ui->skyCultureCurrentTimeSpinBox->value());
+
+	// display a fitting char for cultures that still exist
+	ui->endTimeSpinBox->setDisplayCustomStringForValue(true);
+	ui->endTimeSpinBox->setCustomStringForMax("∞");
 }
 
 void ScmSkyCultureDialog::hideAddPolygon()
@@ -466,7 +717,7 @@ void ScmSkyCultureDialog::hideAddPolygon()
 	ui->scmGeoLocGraphicsView->setFocus();
 }
 
-void ScmSkyCultureDialog::initSkycultureTime()
+void ScmSkyCultureDialog::initSkyCultureTime()
 {
 	int minYear = -6500; // should be small enough so that new cultures can always be added (who knows what will be discovered in the future)
 	int maxYear = QDateTime::currentDateTime().date().year();
@@ -498,27 +749,34 @@ void ScmSkyCultureDialog::updateSkyCultureTimeValue(int year)
 	ui->scmGeoLocGraphicsView->updateTime(year);
 }
 
-void ScmSkyCultureDialog::addLocation(const scm::CulturePolygon culturePoly)
+void ScmSkyCultureDialog::addLocation(scm::CulturePolygon culturePoly)
 {
+	if (culturePoly.endTime.toInt() > ui->skyCultureCurrentTimeSpinBox->maximum())
+	{
+		culturePoly.endTime = "∞";
+	}
+
 	// add polygon to list (polygonInfoTreeWidget)
-	ui->polygonInfoTreeWidget->addTopLevelItem(new PolygonInfoTreeItem(culturePoly.id, culturePoly.startTime, culturePoly.endTime, culturePoly.polygon.size()));
+	ui->polygonInfoTreeWidget->addTopLevelItem(new ScmPolygonInfoTreeItem(culturePoly.id, culturePoly.startTime, culturePoly.endTime, culturePoly.polygon.size()));
+	ui->polygonInfoTreeWidget->clearSelection();
+	ui->polygonInfoTreeWidget->topLevelItem(ui->polygonInfoTreeWidget->topLevelItemCount() - 1)->setSelected(true);
 
 	// send poly to maker
 	maker->addSkyCultureLocation(culturePoly);
 }
 
-void ScmSkyCultureDialog::removeLocation()
+void ScmSkyCultureDialog::removeSelectedLocation()
 {
 	// in theory, there should always only be 1 selected item at a time in polygonInfoTreeWidget
 	// (maybe this changes in the future, therefore the for-loop usage is reasonable)
 	for (const auto &item : ui->polygonInfoTreeWidget->selectedItems())
 	{
-		PolygonInfoTreeItem *polygonInfoItem = static_cast<PolygonInfoTreeItem *>(item);
+		ScmPolygonInfoTreeItem *polygonInfoItem = static_cast<ScmPolygonInfoTreeItem *>(item);
 
 		// remove polygon from map (scmGeoLocGraphicsView)
 		ui->scmGeoLocGraphicsView->removePolygon(polygonInfoItem->getId());
 
-		// remove polygon from skyculture in maker
+		// remove polygon from skyCulture in maker
 		maker->removeSkyCultureLocation(polygonInfoItem->getId());
 
 		// remove polygon from list (polygonInfoTreeWidget)
@@ -532,7 +790,9 @@ void ScmSkyCultureDialog::removeLocation()
 	{
 		// update the start / end time info labels
 		int startTime = ui->polygonInfoTreeWidget->topLevelItem(0)->text(0).toInt();
-		int endTime = ui->polygonInfoTreeWidget->topLevelItem(0)->text(1).toInt();
+		QString endTime = ui->polygonInfoTreeWidget->topLevelItem(0)->text(1);
+
+		bool endTimeEvaluated = false; // can't use break when endTime is done because of startTime
 
 		for (int index = 1; index < ui->polygonInfoTreeWidget->topLevelItemCount(); index++)
 		{
@@ -541,18 +801,26 @@ void ScmSkyCultureDialog::removeLocation()
 				startTime = ui->polygonInfoTreeWidget->topLevelItem(index)->text(0).toInt();
 			}
 
-			if (ui->polygonInfoTreeWidget->topLevelItem(index)->text(1).toInt() > endTime)
+			if (!endTimeEvaluated)
 			{
-				endTime = ui->polygonInfoTreeWidget->topLevelItem(index)->text(1).toInt();
+				if (ui->polygonInfoTreeWidget->topLevelItem(index)->text(1) == "∞")
+				{
+					endTime = ui->polygonInfoTreeWidget->topLevelItem(index)->text(1);
+					endTimeEvaluated = true;
+				}
+				else if (ui->polygonInfoTreeWidget->topLevelItem(index)->text(1).toInt() > endTime.toInt())
+				{
+					endTime = ui->polygonInfoTreeWidget->topLevelItem(index)->text(1);
+				}
 			}
 		}
 
 		ui->cultureStartTimeValueLabel->setText(QString::number(startTime));
-		ui->cultureEndTimeValueLabel->setText(QString::number(endTime));
+		ui->cultureEndTimeValueLabel->setText(endTime);
 
-		// update the start/ end time of the skyculture
+		// update the startTime / endTime of the skyCulture
 		maker->setSkyCultureStartTime(ui->cultureStartTimeValueLabel->text().toInt());
-		maker->setSkyCultureEndTime(ui->cultureEndTimeValueLabel->text().toInt());
+		maker->setSkyCultureEndTime(ui->cultureEndTimeValueLabel->text());
 	}
 	else
 	{
@@ -561,36 +829,64 @@ void ScmSkyCultureDialog::removeLocation()
 	}
 }
 
-void ScmSkyCultureDialog::selectLocation(QTreeWidgetItem *item, int column)
+void ScmSkyCultureDialog::editSelectedLocation()
 {
-	PolygonInfoTreeItem *polygonInfoItem = static_cast<PolygonInfoTreeItem *>(item);
+	ui->editPolygonButton->setVisible(false);
+	ui->saveEditPolygonButton->setVisible(true);
+	ui->abortEditPolygonButton->setVisible(true);
+
+	for (const auto &item : ui->polygonInfoTreeWidget->selectedItems())
+	{
+		// maybe use edit func (but for now quick and dirty: remove ---> edit ---> add new)
+		ScmPolygonInfoTreeItem *polygonInfoItem = static_cast<ScmPolygonInfoTreeItem *>(item);
+
+		// start editMode for given polygon (in scmGeoLocGraphicsView)
+		ui->scmGeoLocGraphicsView->editPolygon(polygonInfoItem->getId());
+	}
+	// disable treeWidget and removePolygonButton so the user doesnt break anything
+	ui->polygonInfoTreeWidget->setEnabled(false);
+	ui->removePolygonButton->setEnabled(false);
+	ui->scmGeoLocGraphicsView->setFocus();
+}
+
+void ScmSkyCultureDialog::saveLocationChanges()
+{
+	for (const auto &item : ui->polygonInfoTreeWidget->selectedItems())
+	{
+		ScmPolygonInfoTreeItem *polygonInfoItem = static_cast<ScmPolygonInfoTreeItem *>(item);
+		maker->removeSkyCultureLocation(polygonInfoItem->getId());
+		delete item;
+	}
+	ui->scmGeoLocGraphicsView->exitEditMode(false);
+
+	// re-activate gui elements / change visibility
+	ui->polygonInfoTreeWidget->setEnabled(true);
+	ui->editPolygonButton->setVisible(true);
+	ui->saveEditPolygonButton->setVisible(false);
+	ui->abortEditPolygonButton->setVisible(false);
+	ui->scmGeoLocGraphicsView->setFocus();
+}
+
+void ScmSkyCultureDialog::discardLocationChanges()
+{
+	if (ui->polygonInfoTreeWidget->topLevelItemCount() > 0)
+	{
+		ui->scmGeoLocGraphicsView->exitEditMode(true);
+	}
+
+	// re-activate gui elements / change visibility
+	ui->polygonInfoTreeWidget->setEnabled(true);
+	ui->removePolygonButton->setEnabled(true); // not needed in saveLocationChanges because new item is added
+	ui->editPolygonButton->setVisible(true);
+	ui->saveEditPolygonButton->setVisible(false);
+	ui->abortEditPolygonButton->setVisible(false);
+	ui->scmGeoLocGraphicsView->setFocus();
+}
+
+void ScmSkyCultureDialog::selectLocation(QTreeWidgetItem *item)
+{
+	ScmPolygonInfoTreeItem *polygonInfoItem = static_cast<ScmPolygonInfoTreeItem *>(item);
 	ui->scmGeoLocGraphicsView->selectPolygon(polygonInfoItem->getId());
-}
-
-void ScmSkyCultureDialog::changeStartTime()
-{
-	int startYear = ui->startTimeSpinBox->value();
-	int endYear = ui->endTimeSpinBox->value();
-
-	if (startYear > endYear)
-	{
-		ui->startTimeSpinBox->blockSignals(true);
-		ui->startTimeSpinBox->setValue(endYear);
-		ui->startTimeSpinBox->blockSignals(false);
-	}
-}
-
-void ScmSkyCultureDialog::changeEndTime()
-{
-	int startYear = ui->startTimeSpinBox->value();
-	int endYear = ui->endTimeSpinBox->value();
-
-	if (endYear < startYear)
-	{
-		ui->endTimeSpinBox->blockSignals(true);
-		ui->endTimeSpinBox->setValue(startYear);
-		ui->endTimeSpinBox->blockSignals(false);
-	}
 }
 
 void ScmSkyCultureDialog::checkMutExRegions(const QStringList checkedItems)
@@ -617,31 +913,10 @@ void ScmSkyCultureDialog::checkMutExRegions(const QStringList checkedItems)
 	}
 }
 
-void ScmSkyCultureDialog::addPolygonSetStartTime(int Year)
-{
-	ui->startTimeSpinBox->blockSignals(true);
-	ui->endTimeSpinBox->blockSignals(true);
-
-	ui->startTimeSpinBox->setValue(Year);
-	ui->endTimeSpinBox->setValue(Year);
-
-	ui->startTimeSpinBox->blockSignals(false);
-	ui->endTimeSpinBox->blockSignals(false);
-}
-
-void ScmSkyCultureDialog::addPolygonSetTimeLimits(int minYear, int maxYear)
-{
-	ui->startTimeSpinBox->setMinimum(minYear);
-	ui->startTimeSpinBox->setMaximum(maxYear);
-
-	ui->endTimeSpinBox->setMinimum(minYear);
-	ui->endTimeSpinBox->setMaximum(maxYear);
-}
-
 void ScmSkyCultureDialog::confirmAddPolygon()
 {
 	int startTime = ui->startTimeSpinBox->value();
-	int endTime = ui->endTimeSpinBox->value();
+	QString endTime = ui->endTimeSpinBox->text();
 
 	// increase the polygonCountValueLabel by 1
 	ui->polygonCountValueLabel->setText(QString::number(ui->polygonCountValueLabel->text().toInt() + 1));
@@ -661,24 +936,28 @@ void ScmSkyCultureDialog::confirmAddPolygon()
 
 	if (ui->cultureEndTimeValueLabel->text().isEmpty())
 	{
-		ui->cultureEndTimeValueLabel->setText(QString::number(endTime));
+		ui->cultureEndTimeValueLabel->setText(endTime);
 	}
-	else
+	else if (ui->cultureEndTimeValueLabel->text() != "∞")
 	{
-		if (endTime > ui->cultureEndTimeValueLabel->text().toInt())
+		if (endTime == "∞")
 		{
-			ui->cultureEndTimeValueLabel->setText(QString::number(endTime));
+			ui->cultureEndTimeValueLabel->setText(endTime);
+		}
+		else if (endTime.toInt() > ui->cultureEndTimeValueLabel->text().toInt())
+		{
+			ui->cultureEndTimeValueLabel->setText(endTime);
 		}
 	}
 
-	// update the startTime / endTime of the skyculture
+	// update the startTime / endTime of the skyCulture
 	maker->setSkyCultureStartTime(ui->cultureStartTimeValueLabel->text().toInt());
-	maker->setSkyCultureEndTime(ui->cultureEndTimeValueLabel->text().toInt());
+	maker->setSkyCultureEndTime(ui->cultureEndTimeValueLabel->text());
 
 	// add the current polygon to the map with startTime and endTime as time limits
-	ui->scmGeoLocGraphicsView->addCurrentPoly(startTime, endTime);
+	ui->scmGeoLocGraphicsView->addCurrentPoly(startTime, ui->endTimeSpinBox->value());
 
-	// the the popup dialog
+	// hide the popup dialog
 	hideAddPolygon();
 }
 

@@ -20,6 +20,8 @@ SET(stellarium_lib_SRCS
      core/StelAudioMgr.cpp
      core/StelVideoMgr.hpp
      core/StelVideoMgr.cpp
+     core/StelSpeechMgr.hpp
+     core/StelSpeechMgr.cpp
      core/StelGeodesicGrid.cpp
      core/StelGeodesicGrid.hpp
      core/StelMovementMgr.cpp
@@ -328,14 +330,10 @@ IF(STELLARIUM_GUI_MODE STREQUAL "Standard")
           gui/Dialog.cpp
           gui/MapWidget.hpp
           gui/MapWidget.cpp
-          gui/SkycultureMapGraphicsView.hpp
-          gui/SkycultureMapGraphicsView.cpp
-          gui/SkyculturePolygonItem.hpp
-          gui/SkyculturePolygonItem.cpp
-          gui/PreviewPathItem.hpp
-          gui/PreviewPathItem.cpp
-          gui/PreviewPolygonItem.hpp
-          gui/PreviewPolygonItem.cpp
+          gui/SkyCultureMapGraphicsView.hpp
+          gui/SkyCultureMapGraphicsView.cpp
+          gui/SkyCulturePolygonItem.hpp
+          gui/SkyCulturePolygonItem.cpp
           gui/SeparatorListWidgetItem.hpp
           gui/SeparatorListWidgetItem.cpp
           gui/AngleSpinBox.hpp
@@ -514,7 +512,13 @@ IF(WIN32 AND ENABLE_WINDOWS_EXE_ICON)
 ENDIF()
 
 # Setup Qt5/6 dependencies
-SET(STELLARIUM_QT_LIBRARIES Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Concurrent Qt${QT_VERSION_MAJOR}::Gui ${STEL_GLES_LIBS} Qt${QT_VERSION_MAJOR}::Network Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::SvgWidgets Qt${QT_VERSION_MAJOR}::Charts Qt${QT_VERSION_MAJOR}::Positioning)
+SET(STELLARIUM_QT_LIBRARIES Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Concurrent Qt${QT_VERSION_MAJOR}::Gui ${STEL_GLES_LIBS} Qt${QT_VERSION_MAJOR}::Network Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Svg Qt${QT_VERSION_MAJOR}::Charts Qt${QT_VERSION_MAJOR}::Positioning)
+
+IF(Qt6_FOUND)
+# Qt6 needs SvgWidgets, for Qt5 it's included in Svg
+     LIST(APPEND STELLARIUM_QT_LIBRARIES Qt6::SvgWidgets)
+ENDIF()
+
 IF(NOT USE_BUNDLED_QTCOMPRESS)
      SET(STELLARIUM_QT_LIBRARIES ${STELLARIUM_QT_LIBRARIES} Qt${QT_VERSION_MAJOR}::GuiPrivate)
 ELSE()
@@ -524,7 +528,24 @@ IF(APPLE AND Qt6_FOUND)
 ENDIF()
 IF(ENABLE_MEDIA)
      SET(STELLARIUM_QT_LIBRARIES ${STELLARIUM_QT_LIBRARIES} Qt${QT_VERSION_MAJOR}::Multimedia Qt${QT_VERSION_MAJOR}::MultimediaWidgets)
-ENDIF()
+     IF(Qt6_FOUND AND Qt6Core_VERSION GREATER_EQUAL 6.4.0)
+          find_package(Qt6 COMPONENTS TextToSpeech)
+          IF(Qt6TextToSpeech_VERSION VERSION_GREATER_EQUAL 6.4.0)
+               SET(STELLARIUM_QT_LIBRARIES ${STELLARIUM_QT_LIBRARIES} Qt6::TextToSpeech)
+               MESSAGE(STATUS "Adding Speech output.")
+          ELSE()
+                    MESSAGE(STATUS "Qt::TextToSpeech not found or <6.4. You will not have Speech output!")
+                    SET(ENABLE_SPEECH 0)
+          ENDIF()
+     ELSE()
+          MESSAGE(STATUS "Qt<6.4 found. You will not have Speech output!")
+          SET(ENABLE_SPEECH 0)
+     ENDIF()
+     IF(ENABLE_SPEECH)
+          ADD_DEFINITIONS(-DENABLE_SPEECH)
+     ENDIF(ENABLE_SPEECH)
+ENDIF(ENABLE_MEDIA)
+
 IF(ENABLE_SCRIPTING)
     IF(ENABLE_SCRIPT_QML)
          SET(STELLARIUM_QT_LIBRARIES ${STELLARIUM_QT_LIBRARIES} Qt${QT_VERSION_MAJOR}::Qml)

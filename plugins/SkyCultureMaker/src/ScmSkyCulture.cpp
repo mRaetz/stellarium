@@ -25,6 +25,7 @@
 #include "types/Classification.hpp"
 #include <utility>
 #include <QFile>
+#include <QTextStream>
 
 void scm::ScmSkyCulture::setId(const QString &id)
 {
@@ -41,19 +42,17 @@ void scm::ScmSkyCulture::setStartTime(int startTime)
 	ScmSkyCulture::startTime = startTime;
 }
 
-void scm::ScmSkyCulture::setEndTime(int endTime)
+void scm::ScmSkyCulture::setEndTime(const QString &endTime)
 {
 	ScmSkyCulture::endTime = endTime;
 }
 
 scm::ScmConstellation &scm::ScmSkyCulture::addConstellation(const QString &id,
-                                                            const std::vector<CoordinateLine> &coordinates,
-                                                            const std::vector<StarLine> &stars,
+                                                            const std::vector<ConstellationLine> &lines,
                                                             const bool isDarkConstellation)
 {
-	scm::ScmConstellation constellationObj(id, coordinates, stars, isDarkConstellation);
-	constellations.push_back(std::move(constellationObj));
-	return constellations.back();
+	constellations.push_back(std::make_unique<scm::ScmConstellation>(id, lines, isDarkConstellation));
+	return *constellations.back();
 }
 
 void scm::ScmSkyCulture::addLocation(const scm::CulturePolygon &polygon)
@@ -64,36 +63,30 @@ void scm::ScmSkyCulture::addLocation(const scm::CulturePolygon &polygon)
 void scm::ScmSkyCulture::removeConstellation(const QString &id)
 {
 	constellations.erase(remove_if(begin(constellations), end(constellations),
-	                               [id](ScmConstellation const &c) { return c.getId() == id; }),
+	                               [id](const std::unique_ptr<ScmConstellation> &c) { return c->getId() == id; }),
 	                     end(constellations));
 }
 
 void scm::ScmSkyCulture::removeLocation(int id)
 {
-	for (auto i = locations.begin(), end = locations.end(); i != end; i++)
-	{
-		if (i->id == id)
-		{
-			locations.erase(i);
-		}
-	}
+	locations.erase(std::remove_if(std::begin(locations), std::end(locations),
+							  [id](const CulturePolygon &p) { return p.id == id; }),
+					std::end(locations));
 }
 
 scm::ScmConstellation *scm::ScmSkyCulture::getConstellation(const QString &id)
 {
-	for (auto &constellation : constellations)
-	{
-		if (constellation.getId() == id) return &constellation;
-	}
-	return nullptr;
+	auto it = std::find_if(constellations.begin(), constellations.end(),
+						   [&id](const std::unique_ptr<ScmConstellation> &c) { return c->getId() == id; });
+	return it != constellations.end() ? it->get() : nullptr;
 }
 
-std::vector<scm::ScmConstellation> *scm::ScmSkyCulture::getConstellations()
+std::vector<std::unique_ptr<scm::ScmConstellation>> *scm::ScmSkyCulture::getConstellations()
 {
 	return &constellations;
 }
 
-QJsonObject scm::ScmSkyCulture::getIndexJson() const
+QJsonObject scm::ScmSkyCulture::toJson(const bool mergeLines) const
 {
 	QJsonObject scJsonObj;
 
@@ -118,7 +111,7 @@ QJsonObject scm::ScmSkyCulture::getIndexJson() const
 	QJsonArray constellationsArray;
 	for (const auto &constellation : constellations)
 	{
-		constellationsArray.append(constellation.toJson(id));
+		constellationsArray.append(constellation->toJson(id, mergeLines));
 	}
 	scJsonObj["constellations"] = constellationsArray;
 
@@ -144,7 +137,10 @@ void scm::ScmSkyCulture::draw(StelCore *core) const
 {
 	for (auto &constellation : constellations)
 	{
-		constellation.drawConstellation(core);
+		if(!constellation->isHidden)
+		{
+			constellation->draw(core);
+		}
 	}
 }
 
@@ -162,7 +158,6 @@ bool scm::ScmSkyCulture::saveDescriptionAsMarkdown(QFile &file)
 		// the sky heading is not only needed for the sky description, but also for the subsections
 		const bool hasSkyHeading = !desc.sky.trimmed().isEmpty() || !desc.moonAndSun.trimmed().isEmpty() || !desc.planets.trimmed().isEmpty() ||
 		                           !desc.zodiac.trimmed().isEmpty() ||
-		                           !desc.constellations.trimmed().isEmpty() ||
 		                           !desc.milkyWay.trimmed().isEmpty() || !desc.otherObjects.trimmed().isEmpty();
 
 		QTextStream out(&file);
@@ -243,7 +238,7 @@ bool scm::ScmSkyCulture::saveIllustrations(const QString &directory)
 	bool success = true;
 	for (auto &constellation : constellations)
 	{
-		success &= constellation.saveArtwork(directory);
+		success &= constellation->saveArtwork(directory);
 	}
 
 	return success;
@@ -252,4 +247,89 @@ bool scm::ScmSkyCulture::saveIllustrations(const QString &directory)
 const QString &scm::ScmSkyCulture::getId() const
 {
 	return id;
+}
+
+void scm::ScmSkyCulture::mergeLocations()
+{
+	int contValue = QDateTime::currentDateTime().date().year() + 1;
+
+	for (int currentLocationIdx = 0; currentLocationIdx < (locations.size() - 1); currentLocationIdx++)
+	{
+		// compare current location to others in list
+		for (int compareLocationIdx = currentLocationIdx + 1; compareLocationIdx < locations.size(); compareLocationIdx++)
+		{
+			// check whether the polygons intersect
+			if (locations[currentLocationIdx].polygon.intersects(locations[compareLocationIdx].polygon))
+			{
+				// check whether there is there a point in time at which they both exist
+				int evalCurrentLocEndTime = locations[currentLocationIdx].endTime == "∞" ? contValue : locations[currentLocationIdx].endTime.toInt();
+				int evalCompareLocEndTime = locations[compareLocationIdx].endTime == "∞" ? contValue : locations[compareLocationIdx].endTime.toInt();
+				int mergeStartTime = std::max(locations[currentLocationIdx].startTime, locations[compareLocationIdx].startTime);
+				int mergeEndTime = std::min(evalCurrentLocEndTime, evalCompareLocEndTime);
+				if (mergeStartTime <= mergeEndTime)
+				{
+					// merge the polygons and add the new location to the list
+					QPolygonF mergedPolygon = locations[currentLocationIdx].polygon.united(locations[compareLocationIdx].polygon);
+					QString mergedPolyEndTime = mergeEndTime == contValue ? "∞" : QString::number(mergeEndTime);
+					locations.push_back(scm::CulturePolygon(locations.last().id + 1, mergeStartTime, mergedPolyEndTime, mergedPolygon));
+
+					// there are 3 cases that can occur (depending on the overlap of startTime / endTime)
+					// case 1: startTime and endTime are within the boundaries of the new merged polygon ---> delete old polygon
+					// case 2: startTime / endTime only partly overlaps with boundaries ---> change startTime or endTime of old polygon accordingly
+					// case 3: new merged polygon lies within startTime / endTime of old polygon ---> split old polygon and change startTime / endTime
+
+					int dStartTime = mergeStartTime - locations[compareLocationIdx].startTime;
+					int dEndTime = evalCompareLocEndTime - mergeEndTime;
+					if (dStartTime > 0 && dEndTime > 0)
+					{
+						// case 3 (split)
+						locations.push_back(scm::CulturePolygon(locations.last().id + 1, mergeEndTime + 1, locations[compareLocationIdx].endTime, locations[compareLocationIdx].polygon));
+						locations[compareLocationIdx].endTime = QString::number(mergeStartTime - 1);
+					}
+					else if (dStartTime <= 0 && dEndTime > 0)
+					{
+						// case 2.1 (change startTime)
+						locations[compareLocationIdx].startTime = mergeEndTime + 1;
+					}
+					else if (dStartTime > 0 && dEndTime <= 0)
+					{
+						// case 2.2 (change endTime)
+						locations[compareLocationIdx].endTime = QString::number(mergeStartTime - 1);
+					}
+					else if (dStartTime <= 0 && dEndTime <= 0)
+					{
+						// case 1 (deletion)
+						removeLocation(locations[compareLocationIdx].id);
+						compareLocationIdx--;
+					}
+
+					dStartTime = mergeStartTime - locations[currentLocationIdx].startTime;
+					dEndTime = evalCurrentLocEndTime - mergeEndTime;
+					if (dStartTime > 0 && dEndTime > 0)
+					{
+						// case 3 (split)
+						locations.push_back(scm::CulturePolygon(locations.last().id + 1, mergeEndTime + 1, locations[currentLocationIdx].endTime, locations[currentLocationIdx].polygon));
+						locations[currentLocationIdx].endTime = QString::number(mergeStartTime - 1);
+					}
+					else if (dStartTime <= 0 && dEndTime > 0)
+					{
+						// case 2.1 (change startTime)
+						locations[currentLocationIdx].startTime = mergeEndTime + 1;
+					}
+					else if (dStartTime > 0 && dEndTime <= 0)
+					{
+						// case 2.2 (change endTime)
+						locations[currentLocationIdx].endTime = QString::number(mergeStartTime - 1);
+					}
+					else if (dStartTime <= 0 && dEndTime <= 0)
+					{
+						// case 1 (deletion)
+						removeLocation(locations[currentLocationIdx].id);
+						currentLocationIdx--;
+						break;
+					}
+				}
+			}
+		}
+	}
 }

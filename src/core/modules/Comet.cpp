@@ -454,7 +454,7 @@ void Comet::draw(StelCore* core, float maxMagLabels, const QFont& planetNameFont
 	const float vMagnitude=getVMagnitude(core);
 
 	// Exclude drawing if user set a hard limit magnitude.
-	if (core->getSkyDrawer()->getFlagPlanetMagnitudeLimit() && (vMagnitude > core->getSkyDrawer()->getCustomPlanetMagnitudeLimit()))
+	if (core->getSkyDrawer()->getFlagPlanetMagnitudeLimit() && (vMagnitude > static_cast<float>(core->getSkyDrawer()->getCustomPlanetMagnitudeLimit())))
 		return;
 
 	if (getEnglishName() == core->getCurrentLocation().planetName)
@@ -504,7 +504,8 @@ void Comet::draw(StelCore* core, float maxMagLabels, const QFont& planetNameFont
 			StelPainter sPainter(prjin);
 			drawHints(core, sPainter, planetNameFont);
 			Vec3f color=Vec3f(0.25, 0.75, 1);
-			ss->drawAsteroidMarker(core, &sPainter, screenPos[0], screenPos[1], color); // This does not draw directly, but record an entry to be drawn in a batch.
+			if (vMagnitude < ss->getMarkerMagThreshold())
+				ss->drawAsteroidMarker(core, &sPainter, screenPos[0], screenPos[1], color); // This does not draw directly, but record an entry to be drawn in a batch.
 		}
 
 		draw3dModel(core,transfo,static_cast<float>(screenRd), 1.0);

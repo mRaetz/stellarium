@@ -22,12 +22,10 @@
 #include "StelObjectMgr.hpp"
 #include "StelObjectModule.hpp"
 #include "StelCore.hpp"
-#include "StelUtils.hpp"
 #include "StelProjector.hpp"
 #include "StelMovementMgr.hpp"
 #include "StelSkyDrawer.hpp"
-#include "Planet.hpp"
-#include "StelActionMgr.hpp"
+#include "StelSpeechMgr.hpp"
 
 #include <QMouseEvent>
 #include <QString>
@@ -51,6 +49,7 @@ void StelObjectMgr::init()
 	setFlagSelectedObjectPointer(conf->value("viewing/flag_show_selection_marker", true).toBool());
 
 	addAction("actionToggle_Selected_Object_Pointer", N_("Miscellaneous"), N_("Toggle visibility of pointers for selected objects"), "objectPointerVisibility", "");
+	addAction("actionShow_Narration", N_("Selected object information"), N_("Start narration (speech synthesis)"), this, "narrate()", "Shift+R"); // "read"
 }
 
 StelObject::InfoStringGroup StelObjectMgr::getCustomInfoStrings()
@@ -101,6 +100,8 @@ StelObject::InfoStringGroup StelObjectMgr::getCustomInfoStrings()
 		infoTextFilters |= StelObject::EclipticCoordJ2000;
 	if (conf->value("flag_show_constellation", false).toBool())
 		infoTextFilters |= StelObject::IAUConstellation;
+	if (conf->value("flag_show_cultural_constellation", false).toBool())
+		infoTextFilters |= StelObject::CulturalConstellation;
 	if (conf->value("flag_show_sidereal_time", false).toBool())
 		infoTextFilters |= StelObject::SiderealTime;
 	if (conf->value("flag_show_rts_time", false).toBool())
@@ -671,6 +672,19 @@ QVariantMap StelObjectMgr::getObjectInfo(const StelObjectP obj)
 	return map;
 }
 
+QString StelObjectMgr::getObjectNarration(const StelObjectP obj)
+{
+	QString narration;
+	if (!obj)
+	{
+		qWarning() << "getObjectNarration: object not found";
+	}
+	else
+	{
+		narration=obj->getNarration(StelApp::getInstance().getCore());
+	}
+	return narration;
+}
 
 
 void StelObjectMgr::setExtraInfoString(const StelObject::InfoStringGroup& flags, const QString &str)
@@ -718,4 +732,24 @@ void StelObjectMgr::removeExtraInfoStrings(const StelObject::InfoStringGroup& fl
 		if (i.key() & flags)
 			i.remove();
 	}
+}
+
+void StelObjectMgr::narrate()
+{
+#ifdef ENABLE_SPEECH
+	qDebug() << "Narration...";
+	static const StelSpeechMgr *speechMgr=StelApp::getInstance().getStelSpeechMgr();
+	StelCore*core=StelApp::getInstance().getCore();
+	if (lastSelectedObject && speechMgr->enabled())
+	{
+		if (speechMgr->getState()==QTextToSpeech::Speaking)
+			speechMgr->stop();
+		else
+		{
+			QString narration=lastSelectedObject->getNarration(core, speechMgr->getNarrationTextFilters());
+			//qDebug() << "Narration:" << narration;
+			speechMgr->say(narration);
+		}
+	}
+#endif
 }

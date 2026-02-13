@@ -28,12 +28,10 @@
 #include "StelObjectMgr.hpp"
 #include "StelObjectType.hpp"
 #include "enumBitops.hpp"
-#include "types/CoordinateLine.hpp"
 #include "types/DrawTools.hpp"
 #include "types/Drawing.hpp"
 #include "types/DrawingMode.hpp"
-#include "types/Lines.hpp"
-#include "types/StarLine.hpp"
+#include "types/ConstellationLine.hpp"
 #include "types/SkyPoint.hpp"
 #include <cmath>
 #include <optional>
@@ -71,10 +69,10 @@ private:
 	DrawingMode drawingMode = DrawingMode::StarsAndDSO;
 
 	/// The current pending point.
-	std::tuple<CoordinateLine, StarLine> currentLine;
+	ConstellationLine currentLine;
 
-	/// The fixed points.
-	Lines drawnLines;
+	/// The constellations lines drawn by the user.
+	std::vector<ConstellationLine> drawnLines;
 
 	/// The current active tool.
 	DrawTools activeTool = DrawTools::None;
@@ -91,13 +89,16 @@ private:
 	/// Holds the position of the eraser on the last frame.
 	Vec2d lastEraserPos = ScmDraw::defaultLastEraserPos;
 
+	/// The thickness of the constellation lines.
+	int constellationLineThickness = 1;
+
 	/**
 	 * @brief Appends a draw point to the list of drawn points.
 	 * 
 	 * @param point The coordinate in J2000 frame.
 	 * @param starID The id of the star to use.
 	 */
-	void appendDrawPoint(const Vec3d &point, const std::optional<QString> &starID);
+	void appendDrawPoint(const Vec3d &point, const QString &starID);
 
 	/**
 	 * @brief Indicates if two segments intersect.
@@ -144,11 +145,11 @@ public:
 	ScmDraw();
 
 	/**
-	 * @brief Draws the line between the start and the current end point.
+	 * @brief Draws the constellation lines that are currently being edited.
 	 *
 	 * @param core The core used for drawing the line.
 	 */
-	void drawLine(StelCore *core) const;
+	void drawLines(StelCore *core) const;
 
 	/// Handle mouse clicks. Please note that most of the interactions will be done through the GUI module.
 	/// @return set the event as accepted if it was intercepted
@@ -177,24 +178,18 @@ public:
 	void undoLastLine();
 
 	/**
-	 * @brief Get the drawn stick figures as stars if available.
+	 * @brief Gets the lines of the constellation.
 	 *
-	 * @return std::vector<StarLine> The optional filled vector of stars matching the coordinates.
+	 * @return std::vector<ConstellationLine> The drawn constellation lines.
 	 */
-	std::vector<StarLine> getStars() const;
+	std::vector<ConstellationLine> getConstellationLines() const;
 
 	/**
-	 * @brief Get the drawn stick figures as coordinates.
+	 * @brief Loads constellation lines into the buffer.
 	 *
-	 * @return std::vector<CoordinateLine> The drawn coordinates.
+	 * @param lines The lines to load.
 	 */
-	std::vector<CoordinateLine> getCoordinates() const;
-
-	/**
-	 * @brief Loads lines into the buffer from a tuple of coordinates and stars.
-	 *
-	 */
-	void loadLines(const std::vector<CoordinateLine> &coordinates, const std::vector<StarLine> &stars);
+	void loadLines(const std::vector<ConstellationLine> &lines);
 
 	/**
 	 * @brief Set the active draw tool

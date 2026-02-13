@@ -66,7 +66,7 @@
       <item>
        <widget class="QTabWidget" name="tabs">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="iconSize">
          <size>
@@ -237,9 +237,9 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-444</y>
-               <width>809</width>
-               <height>1505</height>
+               <y>-1481</y>
+               <width>800</width>
+               <height>2342</height>
               </rect>
              </property>
              <layout class="QVBoxLayout" name="descriptionLayout">
@@ -334,7 +334,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="MultiselectionComboBox" name="regionComboBox"/>
+                  <widget class="ScmMultiselectionComboBox" name="regionComboBox"/>
                  </item>
                 </layout>
                </widget>
@@ -504,29 +504,6 @@
                    </property>
                   </widget>
                  </item>
-                 <item>
-                  <widget class="QLabel" name="constellationsDescLbl">
-                   <property name="text">
-                    <string>Constellations*:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QTextEdit" name="constellationsDescTE">
-                   <property name="sizeAdjustPolicy">
-                    <enum>QAbstractScrollArea::AdjustToContents</enum>
-                   </property>
-                   <property name="acceptRichText">
-                    <bool>false</bool>
-                   </property>
-                   <property name="placeholderText">
-                    <string>Sequence of Level 5 Markdown sections:
-##### name
-
-Description of constellation...</string>
-                   </property>
-                  </widget>
-                 </item>
                 </layout>
                </widget>
               </item>
@@ -559,17 +536,69 @@ Description of constellation...</string>
                   </widget>
                  </item>
                  <item>
-                  <widget class="QTextEdit" name="referencesTE">
-                   <property name="sizeAdjustPolicy">
-                    <enum>QAbstractScrollArea::AdjustToContents</enum>
-                   </property>
-                   <property name="acceptRichText">
-                    <bool>false</bool>
-                   </property>
-                   <property name="placeholderText">
-                    <string notr="true"> - [#1]: Author: Title, (Journal, ...), Publisher, Location, Year</string>
-                   </property>
-                  </widget>
+                  <layout class="QGridLayout" name="referencesLayout">
+                   <item row="2" column="0">
+                    <widget class="QPushButton" name="addRefBtn">
+                     <property name="text">
+                      <string>Add</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="1">
+                    <widget class="QPushButton" name="moveRefUpBtn">
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset resource="../../../../data/gui/guiRes.qrc">
+                       <normaloff>:/graphicGui/uibtUp.png</normaloff>
+                       <disabledoff>:/graphicGui/uibtUp-disabled.png</disabledoff>:/graphicGui/uibtUp.png</iconset>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="2">
+                    <widget class="QPushButton" name="moveRefDownBtn">
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset resource="../../../../data/gui/guiRes.qrc">
+                       <normaloff>:/graphicGui/uibtDown.png</normaloff>
+                       <disabledoff>:/graphicGui/uibtDown-disabled.png</disabledoff>:/graphicGui/uibtDown.png</iconset>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="3">
+                    <widget class="QPushButton" name="removeRefBtn">
+                     <property name="text">
+                      <string>Remove</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="0" colspan="4">
+                    <widget class="QTreeWidget" name="referencesList">
+                     <property name="rootIsDecorated">
+                      <bool>false</bool>
+                     </property>
+                     <property name="uniformRowHeights">
+                      <bool>true</bool>
+                     </property>
+                     <property name="headerHidden">
+                      <bool>true</bool>
+                     </property>
+                     <column>
+                      <property name="text">
+                       <string/>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string/>
+                      </property>
+                     </column>
+                    </widget>
+                   </item>
+                  </layout>
                  </item>
                  <item>
                   <widget class="QLabel" name="authorsLbl">
@@ -594,7 +623,7 @@ Description of constellation...</string>
                  <item>
                   <widget class="QLabel" name="aboutLbl">
                    <property name="text">
-                    <string>About:*</string>
+                    <string>About the sky culture:*</string>
                    </property>
                   </widget>
                  </item>
@@ -655,12 +684,25 @@ Description of constellation...</string>
         </widget>
         <widget class="QWidget" name="geoLocTab">
          <attribute name="title">
-          <string>Geographical Location</string>
+          <string>Location</string>
          </attribute>
          <layout class="QVBoxLayout" name="geoLocVerticalLayout">
           <item>
            <widget class="QWidget" name="mapPage">
             <layout class="QGridLayout" name="mapGridLayout">
+             <item row="2" column="2" alignment="Qt::AlignRight|Qt::AlignBottom">
+              <widget class="QPushButton" name="helpLabel">
+               <property name="styleSheet">
+                <string notr="true">
+                  border: 1px solid black;
+                  margin: 2px;
+                  padding: 10px;
+                  background-color: rgb(143, 143, 143);
+                  text-align: left;
+                </string>
+               </property>
+              </widget>
+             </item>
              <item row="0" column="0" rowspan="3" colspan="3">
               <widget class="ScmGeoLocGraphicsView" name="scmGeoLocGraphicsView"/>
              </item>
@@ -734,7 +776,7 @@ Description of constellation...</string>
                  </widget>
                 </item>
                 <item row="1" column="2">
-                 <widget class="QSpinBox" name="startTimeSpinBox">
+                 <widget class="ScmAdvancedSpinBox" name="startTimeSpinBox">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
                   </sizepolicy>
@@ -764,7 +806,7 @@ Description of constellation...</string>
                  </widget>
                 </item>
                 <item row="2" column="2">
-                 <widget class="QSpinBox" name="endTimeSpinBox">
+                 <widget class="ScmAdvancedSpinBox" name="endTimeSpinBox">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
                    </sizepolicy>
@@ -843,7 +885,7 @@ Description of constellation...</string>
                <item row="0" column ="0">
                 <widget class="QLabel" name="skyCultureCurrentTimeLabel">
                  <property name="text">
-                  <string>current Time</string>
+                  <string>Current time</string>
                  </property>
                 </widget>
                </item>
@@ -882,76 +924,9 @@ Description of constellation...</string>
                  </property>
                  <property name="styleSheet">
                   <string notr="true">
-
                   QSpinBox
                   {
-                  font-weight: bold;
-                          padding-right: 0;
-
-                          border: 1px solid rgb(0, 0, 0);
-                          color: rgb(31, 31, 31);
-                          min-height: 25px;
-                          width: 100px;
-                  }
-
-                  QSpinBox::up-button
-                  {
-                          subcontrol-origin: border;
-                          subcontrol-position: center right;
-                          border: 1px solid rgba(0, 0, 0, 100%);
-                          width: 25px;
-                          height: 25px;
-                          image: url(:/graphicGui/uieSpinboxAdd.png);
-                          background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgb(100, 100, 100), stop: 1 rgb(50, 50, 50));
-
-                  }
-
-                  QSpinBox::down-button
-                  {
-                          subcontrol-origin: border;
-                          subcontrol-position: center left;
-                          border: 1px solid rgba(0, 0, 0, 100%);
-                          width: 25px;
-                          height: 25px;
-                          image: url(:/graphicGui/uieSpinboxRemove.png);
-                          background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgb(100, 100, 100), stop: 1 rgb(50, 50, 50));
-                  }
-
-                  QSpinBox::up-button:hover
-                  {
-                          subcontrol-origin: border;
-                          subcontrol-position: center right;
-                          width: 25px;
-                          height: 25px;
-                          border: 1px solid rgba(0, 0, 0, 100%);
-
-                          image: url(:/graphicGui/uieSpinboxAdd.png);
-                          background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgb(97, 97, 87), stop: 1 rgb(50, 50, 50));
-
-                  }
-
-                  QSpinBox::down-button:hover
-                  {
-                          subcontrol-origin: border;
-                          subcontrol-position: center left;
-                          width: 25px;
-                          height: 25px;
-                          border: 1px solid rgba(0, 0, 0, 100%);
-
-                          image: url(:/graphicGui/uieSpinboxRemove.png);
-                          background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgb(97, 97, 87), stop: 1 rgb(50, 50, 50));
-
-                  }
-
-
-                  QSpinBox::up-button:pressed
-                  {
-                          image: url(:/graphicGui/uieSpinboxAdd-pressed.png);
-                  }
-
-                  QSpinBox::down-button:pressed
-                  {
-                          image: url(:/graphicGui/uieSpinboxRemove-pressed.png);
+                      width: 65px;
                   }
                   </string>
                  </property>
@@ -1030,6 +1005,52 @@ Description of constellation...</string>
                  </property>
                 </widget>
                </item>
+               <item row="4" column="1" colspan="2">
+                <layout class="QHBoxLayout" name="editPolygonButtonHorizontalLayout">
+                 <property name="spacing">
+                  <number>10</number>
+                 </property>
+                 <item>
+                  <widget class="QPushButton" name="saveEditPolygonButton">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>Save / Finish</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="abortEditPolygonButton">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>Abort / Discard</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="4" column="1" colspan="2">
+                <widget class="QPushButton" name="editPolygonButton">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="text">
+                  <string>Edit selected polygon</string>
+                 </property>
+                </widget>
+               </item>
                <item row="5" column="1" colspan="2">
                 <widget class="QPushButton" name="removePolygonButton">
                  <property name="sizePolicy">
@@ -1062,17 +1083,17 @@ Description of constellation...</string>
                  </property>
                  <column>
                   <property name="text">
-                   <string notr="true">Start time</string>
+                   <string>Start time</string>
                   </property>
                  </column>
                  <column>
                   <property name="text">
-                   <string notr="true">End time</string>
+                   <string>End time</string>
                   </property>
                  </column>
                  <column>
                   <property name="text">
-                   <string notr="true">Vertex count</string>
+                   <string>Vertex count</string>
                   </property>
                  </column>
                 </widget>
@@ -1080,7 +1101,7 @@ Description of constellation...</string>
               </layout>
              </item>
              <item row="1" column="1" alignment="Qt::AlignBottom">
-              <widget class="QToolButton" name="helpToolButton">
+              <widget class="QToolButton" name="mapHelpToolButton">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                  <horstretch>0</horstretch>
@@ -1099,6 +1120,9 @@ Description of constellation...</string>
                 <string notr="true">
                   background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgb(113, 114, 115), stop: 1 rgb(71, 73, 74));
                 </string>
+               </property>
+               <property name="cursor">
+                <cursorShape>WhatsThisCursor</cursorShape>
                </property>
                <property name="checkable">
                 <bool>false</bool>
@@ -1130,11 +1154,18 @@ Description of constellation...</string>
    <header>ScmGeoLocGraphicsView.hpp</header>
   </customwidget>
   <customwidget>
-   <class>MultiselectionComboBox</class>
+   <class>ScmMultiselectionComboBox</class>
    <extends>QComboBox</extends>
-   <header>MultiselectionComboBox.hpp</header>
+   <header>ScmMultiselectionComboBox.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>ScmAdvancedSpinBox</class>
+   <extends>QSpinBox</extends>
+   <header>ScmAdvancedSpinBox.hpp</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="../../../../data/gui/guiRes.qrc"/>
+ </resources>
  <connections/>
 </ui>

@@ -32,12 +32,20 @@
 
 class QScriptEngine;
 
+Q_DECLARE_LOGGING_CATEGORY(Scripting)
+
+
 //! Provide script API for Stellarium global functions.  Public slots in this class
 //! may be used in Stellarium scripts, and are accessed as member function to the
 //! "core" scripting object.  Module-specific functions, such as setting and clearing
 //! of display flags (e.g. LandscapeMgr::setFlagAtmosphere) can be accessed directly
 //! via the scripting object with the class name, e.g.  by using the scripting command:
 //!  LandscapeMgr.setFlagAtmosphere(true);
+//!
+//! @note You can finetune the amount of scripting-related messages in the logfile by configuring the logging category stel.Scripting.
+//! For this, e.g. set environment variable QT_LOGGING_RULES="*.debug=false;stel.Scripting.debug=true;".
+//! By default, only Info and more severe messages are displayed.
+
 class StelMainScriptAPI : public QObject
 {
 	Q_OBJECT
@@ -737,6 +745,9 @@ public slots:
 	//! - x : x coordinate on the screen
 	//! - y : y coordinate on the screen
 	static QVariantMap getScreenXYFromAltAzi(const QString& alt, const QString& azi);
+
+	//! Narrate a text with speech engine. (Requires Qt6.6 or later.)
+	void say(const QString &text);
 
 	//! Load a sound from a file.
 	//! @param filename the name of the file to load.

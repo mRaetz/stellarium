@@ -20,12 +20,22 @@
 #ifndef SCMGEOLOCGRAPHICSVIEW_HPP
 #define SCMGEOLOCGRAPHICSVIEW_HPP
 
-#include "PreviewPathItem.hpp"
-#include "PreviewPolygonItem.hpp"
+#include "ScmEditModeEllipseItem.hpp"
+#include "ScmEditModePathItem.hpp"
+#include "ScmPreviewPathItem.hpp"
+#include "ScmPreviewPolygonItem.hpp"
 #include "types/CulturePolygon.hpp"
 #include <QGraphicsView>
 
+#include <QMetaType>
 
+enum class EditMode
+{
+	INACTIVE = 0,
+	ACTIVE,
+	MOVEPOINT,
+	ADDPOINT
+};
 
 //! @class ScmGeoLocGraphicsView
 //! Special GraphicsView that allows the User to digitize polygons
@@ -36,57 +46,113 @@ class ScmGeoLocGraphicsView : public QGraphicsView
 public:
 	ScmGeoLocGraphicsView(QWidget *parent = nullptr);
 
-	// public functions
-	void initializeGraphicsView();
 	void addCurrentPoly(int startTime, int endTime);
 	void removePolygon(int id);
+	void editPolygon(int id);
 	void reset();
 
 public slots:
+	/**
+	 * @brief Update the current time and visibility of all polygons.
+	 *
+	 * @param The year to which the current time is set.
+	 */
 	void updateTime(int year);
+
+	/**
+	 * @brief Selects the polygon with the given identifier. If no such identifier is present, nothing happens.
+	 *
+	 * @param The identifier of the polygon to be selected.
+	 */
 	void selectPolygon(int id);
+
+	/**
+	 * @brief Ends the editMode. If discardProgress is true, all changes will be discarded.
+	 *
+	 * @param Value indicating wether the changes made should be discarded.
+	 */
+	void exitEditMode(bool discardProgress);
 
 signals:
 	void timeValueChanged(int year);
-	void timeRangeChanged(int minYear, int maxYear);
-	// =============================================
 	void showAddPolyDialog();
 	void addPolygonToCulture(scm::CulturePolygon poly);
 
-
 protected:
 	void wheelEvent(QWheelEvent *event) override;
-	// void mouseMoveEvent(QMouseEvent *event) override;
-	// void mousePressEvent(QMouseEvent *event) override;
-	// void mouseReleaseEvent(QMouseEvent *event) override;
 	void showEvent(QShowEvent *event) override;
-	void scaleView(double scaleFactor);
-	// ===============================
-	void mouseMoveEvent( QMouseEvent *e ) override;
-	void mousePressEvent( QMouseEvent *e ) override;
-	void mouseReleaseEvent( QMouseEvent *e ) override;
-	void keyPressEvent( QKeyEvent *e ) override;
-
+	void mouseMoveEvent(QMouseEvent *event) override;
+	void mousePressEvent(QMouseEvent *event) override;
+	void mouseReleaseEvent(QMouseEvent *event) override;
+	void keyPressEvent(QKeyEvent *event) override;
 
 private:
-	// variables
+	/// Flag that indicates if the view is currently navigated by the user.
 	bool viewScrolling;
 	bool firstShow;
+	EditMode editMode;
 	int currentYear;
 	QPoint mouseLastXY;
+
+	/// Bounding rect of the map.
 	QRectF defaultRect;
 
-	QMap<int, PreviewPolygonItem *> polygonIdentifierMap;
+	/// Temporary Polygon that is used for copy & paste.
+	QPolygonF temporaryPolygonCopy;
 
-	PreviewPolygonItem *currentCapturePolygon = new PreviewPolygonItem(true);
-	PreviewPathItem *previewCapturePath = new PreviewPathItem();
+	/// Backup of original polygon for edit mode. (consists of itemID and respective geometry)
+	QPair<int, QPolygonF> editModeBackupPolygon;
 
-	// functions
-	QPolygonF convertViewToWGS84(const QPolygonF &viewCoordinatePolygon);
+	/// List that holds all active vertexIDs in editMode. (used for identification)
+	QList<int> editModeVertexList;
+
+	/// List that holds all active edgeIDs in editMode. (used for identification)
+	QList<ScmEditModePathItem *> editModeEdgeList;
+
+	/// Map that pairs an identifier with each item on the map. (used for removal and selection)
+	QMap<int, ScmPreviewPolygonItem *> polygonIdentifierMap;
+
+	/// PolygonItem that visualizes the current digitization progress.
+	ScmPreviewPolygonItem *currentCapturePolygon = new ScmPreviewPolygonItem(true);
+
+	/// PathItem that displays a preview of the current polygon.
+	ScmPreviewPathItem *previewCapturePath = new ScmPreviewPathItem();
+
+	/// EllipseItem that is actively being edited.
+	ScmEditModeEllipseItem *currentVertexEllipseItem;
+
+	/// PathItem that is actively being used to add a new point.
+	ScmEditModePathItem *currentEdgePathItem;
+
+	/**
+	 * @brief Change the visibility of all polygons on the map.
+	 *
+	 */
 	void updateCultureVisibility();
+
+	/**
+	 * @brief Scale the view with respect to the min / max zoom level.
+	 *
+	 * @param scaleFactor The factor by which the view should be scaled.
+	 */
+	void scaleView(double scaleFactor);
+
+	/**
+	 * @brief Calculate the factor by which the view must be scaled to fit in the given width / height.
+	 *
+	 * @param width The width of the new view.
+	 * @param height The height of the new view.
+	 * @return Ratio by which the scene must be scaled to meet the given width / height.
+	 */
 	qreal calculateScaleRatio(qreal width, qreal height);
-	void updatePreviewPath();
-	void exportCulturePolygons();
+
+	/**
+	 * @brief Convert the points of the given polygon from view coordinates to real-world coordinates.
+	 *
+	 * @param A float point polygon in view coordinates.
+	 * @return A float point polygon in real-world coordinates.
+	 */
+	QPolygonF convertViewToWGS84(const QPolygonF &viewCoordinatePolygon);
 };
 
 #endif // SCMGEOLOCGRAPHICSVIEW_HPP

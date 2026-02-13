@@ -36,6 +36,7 @@
 #include "StelApp.hpp"
 #include "StelAudioMgr.hpp"
 #include "StelVideoMgr.hpp"
+#include "StelSpeechMgr.hpp"
 #include "StelCore.hpp"
 #include "StelFileMgr.hpp"
 #include "StelLocation.hpp"
@@ -71,6 +72,8 @@
 #include <QEventLoop>
 
 #include <cmath>
+
+Q_LOGGING_CATEGORY(Scripting,"stel.Scripting", QtInfoMsg)
 
 StelMainScriptAPI::StelMainScriptAPI(QObject *parent) : QObject(parent)
 {
@@ -134,7 +137,7 @@ Color StelMainScriptAPI::color(const QString &cstr)
 	if(qcol.isValid())
 		res.set( static_cast<float>(qcol.redF()), static_cast<float>(qcol.greenF()), static_cast<float>(qcol.blueF()) );
 	else
-		qWarning() << "Color: invalid color name: " << cstr;
+		qCWarning(Scripting) << "Color: invalid color name: " << cstr;
 	return res;
 }
 #endif
@@ -290,7 +293,7 @@ void StelMainScriptAPI::setObserverLocation(const QString &id, double duration)
 	if (loc.isValid())
 		core->moveObserverTo(loc, duration);
 	else
-		qWarning() << "core.setObserverLocation: location" << id << "invalid, not changing location:" << loc.serializeToLine();
+		qCWarning(Scripting) << "core.setObserverLocation: location" << id << "invalid, not changing location:" << loc.serializeToLine();
 }
 
 QString StelMainScriptAPI::getObserverLocation()
@@ -363,9 +366,9 @@ void StelMainScriptAPI::screenshot(const QString& prefix, bool invert, const QSt
 	QString realDir("");
 	if ((!dir.isEmpty()) && (!StelApp::getInstance().getScriptMgr().getFlagAllowExternalScreenshotDir()))
 	{
-		qWarning() << "SCRIPT CONFIGURATION ISSUE: the script wants to store a screenshot" << prefix << "." << format << "to an external directory " << dir;
-		qWarning() << "  To enable this, check the settings in the script console";
-		qWarning() << "  or set entry scripts/flag_allow_screenshots_dir=true in config.ini.";
+		qCWarning(Scripting) << "SCRIPT CONFIGURATION ISSUE: the script wants to store a screenshot" << prefix << "." << format << "to an external directory " << dir;
+		qCWarning(Scripting) << "  To enable this, check the settings in the script console";
+		qCWarning(Scripting) << "  or set entry scripts/flag_allow_screenshots_dir=true in config.ini.";
 	}
 	else
 		realDir=dir;
@@ -378,7 +381,7 @@ void StelMainScriptAPI::screenshot(const QString& prefix, bool invert, const QSt
 	// Check requested against set image format.
 	if ((!format.isEmpty()) && (StelMainView::getInstance().getScreenshotFormat() != format))
 	{
-		qWarning() << "Screenshot format" << format << "not supported. Not saving screenshot.";
+		qCWarning(Scripting) << "Screenshot format" << format << "not supported. Not saving screenshot.";
 		return;
 	}
 
@@ -475,9 +478,9 @@ void StelMainScriptAPI::setSkyCulture(const QString& id)
 	GETSTELMODULE(StelObjectMgr)->unSelect(); // mistake-proofing!
 	if (!StelApp::getInstance().getSkyCultureMgr().getSkyCultureListIDs().contains(id))
 	{
-		qDebug().noquote() << "Could not find skyculture" << id << ". Please check your script.";
+		qCWarning(Scripting).noquote() << "Could not find skyculture" << id << ". Please check your script.";
 		if (id.startsWith("western", Qt::CaseInsensitive))
-			qDebug() << "Western skycultures have been renamed to modern_*. Please update your scripts.";
+			qCWarning(Scripting) << "Western skycultures have been renamed to modern_*. Please update your scripts.";
 	}
 	else
 		emit requestSetSkyCulture(id);
@@ -576,7 +579,7 @@ void StelMainScriptAPI::loadSkyImage(const QString& id, const QString& filename,
 		frameType=StelCore::FrameAltAz;
 	else if (frame!="EqJ2000")
 	{
-		qDebug() << "StelMainScriptAPI::loadSkyImage(): unknown frame type " << frame << " requested -- Using Equatorial J2000";
+		qCWarning(Scripting) << "StelMainScriptAPI::loadSkyImage(): unknown frame type " << frame << " requested -- Using Equatorial J2000";
 	}
 
 	emit requestLoadSkyImage(id, path, lon0, lat0, lon1, lat1, lon2, lat2, lon3, lat3, minRes, maxBright, visible, frameType, withAberration);
@@ -653,7 +656,7 @@ void StelMainScriptAPI::loadSound(const QString& filename, const QString& id)
 	QString path = StelFileMgr::findFile("scripts/" + filename);
 	if (path.isEmpty())
 	{
-		qWarning() << "cannot play sound" << QDir::toNativeSeparators(filename);
+		qCWarning(Scripting) << "cannot play sound" << QDir::toNativeSeparators(filename);
 		return;
 	}
 
@@ -695,7 +698,7 @@ void StelMainScriptAPI::loadVideo(const QString& filename, const QString& id, fl
 	QString path = StelFileMgr::findFile("scripts/" + filename);
 	if (path.isEmpty())
 	{
-		qWarning() << "cannot play video" << QDir::toNativeSeparators(filename);
+		qCWarning(Scripting) << "cannot play video" << QDir::toNativeSeparators(filename);
 		return;
 	}
 
@@ -785,7 +788,7 @@ void StelMainScriptAPI::setScriptRate(double r)
 void StelMainScriptAPI::pauseScript()
 {
 #ifdef ENABLE_SCRIPT_QML
-	qDebug() << "NOTE: pauseScript() is no longer supported. Ignoring.";
+	qCWarning(Scripting) << "NOTE: pauseScript() is no longer supported. Ignoring.";
 #else
 	return StelApp::getInstance().getScriptMgr().pauseScript();
 #endif
@@ -804,7 +807,7 @@ void StelMainScriptAPI::setSelectedObjectInfo(const QString& level)
 	else if (level == "Custom")
 		StelApp::getInstance().getGui()->setInfoTextFilters(GETSTELMODULE(StelObjectMgr)->getCustomInfoStrings());
 	else
-		qWarning() << "setSelectedObjectInfo unknown level string \"" << level << "\"";
+		qCWarning(Scripting) << "setSelectedObjectInfo unknown level string \"" << level << "\"";
 }
 
 void StelMainScriptAPI::exit()
@@ -824,7 +827,7 @@ QStringList StelMainScriptAPI::getPropertyList()
 
 void StelMainScriptAPI::debug(const QString& s)
 {
-	qDebug() << "script: " << s;
+	qCDebug(Scripting) << "script: " << s;
 	StelApp::getInstance().getScriptMgr().debug(s);
 }
 
@@ -959,7 +962,7 @@ double StelMainScriptAPI::jdFromDateString(const QString& dt, const QString& spe
 			unit = yearLength;
 		else
 		{
-			qWarning() << "StelMainScriptAPI::setDate - unknown time unit:" << unitString;
+			qCWarning(Scripting) << "StelMainScriptAPI::setDate - unknown time unit:" << unitString;
 			unit = 0;
 		}
 
@@ -972,7 +975,7 @@ double StelMainScriptAPI::jdFromDateString(const QString& dt, const QString& spe
 		return jd;
 	}
 	
-	qWarning() << "StelMainScriptAPI::jdFromDateString error: date string" << dt << "not recognised, returning \"now\"";
+	qCWarning(Scripting) << "StelMainScriptAPI::jdFromDateString error: date string" << dt << "not recognised, returning \"now\"";
 	return StelUtils::getJDFromSystem();
 }
 
@@ -994,13 +997,13 @@ void StelMainScriptAPI::waitFor(const QString& dt, const QString& spec)
 	double timeRate = getTimeRate();
 	if (timeRate == 0.)
 	{
-		qDebug() << "waitFor() called with no time passing - would be infinite. Not waiting!";
+		qCWarning(Scripting) << "waitFor() called with no time passing - would be infinite. Not waiting!";
 		return;
 	}
 	int interval=qRound(1000*deltaJD*86400/timeRate);
 	if (interval<=0)
 	{
-		qDebug() << "waitFor() called, but negative interval (time exceeded before starting timer). Not waiting!";
+		qCWarning(Scripting) << "waitFor() called, but negative interval (time exceeded before starting timer). Not waiting!";
 		return;
 	}
 	StelScriptMgr* scriptMgr = &StelApp::getInstance().getScriptMgr();
@@ -1186,7 +1189,7 @@ void StelMainScriptAPI::clear(const QString& state)
 	const int stateInt = stateMap.value(state.toLower(), 0);
 	if (stateInt == 0)
 	{
-		qWarning() << "State for command clear(" << state << ") not known";
+		qCWarning(Scripting) << "State for command clear(" << state << ") not known";
 	}
 	else
 	{
@@ -1411,11 +1414,11 @@ void StelMainScriptAPI::moveToRaDec(const QString& ra, const QString& dec, float
 	Vec3d aimUp;
 	if ( (mountMode==StelMovementMgr::MountEquinoxEquatorial) && (fabs(dDec)> (0.9*M_PI/2.0)) )
 	{
-		//qDebug() << "ATTENTION: Aiming into pole!";
-		//qDebug() << "\tdRa=" << dRa << "dDec=" << dDec;
+		//qCDebug(Scripting) << "ATTENTION: Aiming into pole!";
+		//qCDebug(Scripting) << "\tdRa=" << dRa << "dDec=" << dDec;
 		aimUp=//core->equinoxEquToJ2000(
 					Vec3d(-cos(dRa), -sin(dRa), 0.) * (dDec>0. ? 1. : -1. ); //, StelCore::RefractionOff);
-		//qDebug() << "\taimUp=" << aimUp;
+		//qCDebug(Scripting) << "\taimUp=" << aimUp;
 	}
 	else
 		aimUp=core->equinoxEquToJ2000(Vec3d(0., 0., 1.), StelCore::RefractionOff);
@@ -1619,4 +1622,13 @@ Vec2d StelMainScriptAPI::setWindowSize(int width, int height)
 	StelMainView &mainView=StelMainView::getInstance();
 	QRectF rect=mainView.setWindowSize(width, height);
 	return Vec2d(rect.width(), rect.height());
+}
+
+void StelMainScriptAPI::say(const QString &text)
+{
+	static StelSpeechMgr *speech=StelApp::getInstance().getStelSpeechMgr();
+	if (speech)
+		speech->say(text);
+	else
+		qWarning() << "Speech output problem in say()";
 }

@@ -119,6 +119,13 @@ sudo apt install build-essential cmake zlib1g-dev libgl1-mesa-dev libdrm-dev lib
                  libexiv2-dev libnlopt-cxx-dev libqt6concurrent6 libmd4c-dev libmd4c-html0-dev
 ```
 
+Ubuntu 24.04 has Qt6.4 and so allows speech output. Add these to the packages above (add more speech-dispatcher components as you wish):
+
+```
+sudo apt install libqt6texttospeech6 qt6-speech-dev qt6-speech-speechd-plugin qt6-speech-flite-plugin \
+                 flite speech-dispatcher speech-dispatcher-flite speech-dispatcher-espeak-ng
+```
+
 
 #### Fedora / CentOS / AlmaLinux / Rocky Linux
 
@@ -298,9 +305,9 @@ https://github.com/Stellarium/stellarium/releases
 Do this command in a terminal (if you prefer, you might use arK or some other graphical archive tool): 
 
 ```
-$ tar zxf stellarium-25.2.tar.gz
+$ tar zxf stellarium-25.4.tar.gz
 ```
-You should now have a directory `stellarium-25.2` with the source code in it.
+You should now have a directory `stellarium-25.4` with the source code in it.
 
 
 ### Clone project from GitHub
@@ -339,7 +346,7 @@ GitHub by web.
 
 #### Windows specifics
 
-On Windows save the file (`master.zip` or `stellarium-25.2.tar.gz`) to the `C:/Devel` directory as 
+On Windows save the file (`master.zip` or `stellarium-25.4.tar.gz`) to the `C:/Devel` directory as 
 example. You will need a decompression program installed in Windows, for example [7-Zip](http://www.7-zip.org/). 
 The root of the source tree will be `C:/Devel/stellarium` for simplicity.
 
@@ -395,6 +402,218 @@ a directory name is proposed, but you have to create it manually.
 You can keep your copy up-to-date by typing `git pull --rebase` in ~/stellarium. 
 Feel free to send patches to our mailing list stellarium@googlegroups.com
 
+#### For Visual Studio 2022 (multi-configuration):
+
+Select a working directory <work_dir> close to the drive root, e.g <work_dir> = "E:\Dev"
+**Note** : VS 2022 will generate very long path for some sub-directory, so keep <work_dir> short to avoid 
+exceeding the limit of 260 characters.
+
+Download Stellarium from GitHub into : <stel_dir> = <work_dir> + "\stellarium"
+
+Create a CMakePresets.json file and save the file in <stel_dir>. This file must be in the same directory 
+as the top level CMakeLists.txt of Stellarium. The CMakePresets.json file defines all required build 
+configurations (e.g. Debug, Release, RelWithDebInfo). It shall be structured for a multi-configuration
+build process (see example below). However, it must be customized to your rig and software setup. 
+
+Here is an example that was created to build Stellarium using Qt 6.7.3 framework. CMake parameters (-D flags) 
+are defined within the "cacheVariables" section. Modify/Add your own as required. Some parameters were added 
+to indicate to VS 2022 where to find some libraries (.lib) or include files (.hpp), those are specific to this
+example and may not apply to your setup.
+
+<CMakePresets.json file example>
+
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "vs2022-multi-config",
+      "displayName": "Stellarium (VS2022 Multi-Config)",
+      "description": "Unified build tree for Debug, Release, and RelWithDebInfo using Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": {
+        "value": "x64"
+      },
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release;RelWithDebInfo",
+	    "CMAKE_BUILD_TYPE": "Debug",
+	    "CMAKE_SUPPRESS_DEVELOPER_WARNINGS": "1",
+	    "CMAKE_PREFIX_PATH": "C:/Qt/6.7.3/msvc2022_64;C:/Dev/Libs/exiv2-0.28.7/lib/cmake/exiv2",
+        "QT_QMAKE_EXECUTABLE": "C:/Qt/6.7.3/msvc2022_64/bin/qmake.exe",
+        "ENABLE_SCRIPTING": "ON",
+        "ENABLE_GPS": "ON",
+        "ENABLE_TESTING": "ON",
+        "ENABLE_NLS": "ON",
+        "SCM_SHOULD_ENABLE_CONVERTER": "TRUE",
+        "GETTEXTPO_LIBRARY": "C:/Dev/Libs/gettextpo/lib/libgettextpo.lib",
+        "GETTEXTPO_INCLUDE_DIR": "C:/Dev/Libs/gettextpo/include",
+        "LIBTIDY_LIBRARY": "C:/Dev/Libs/libtidy/lib/libtidy.lib",
+        "LIBTIDY_INCLUDE_DIR": "C:/Dev/Libs/libtidy/include",
+        "EXIV2_LIBRARY": "C:/Dev/Libs/exiv2-0.28.7/lib/exiv2.lib",
+        "EXIV2_INCLUDE_DIR": "C:/Dev/Libs/exiv2-0.28.7/include",
+        "exiv2_DIR": "C:/Dev/Libs/exiv2-0.28.7/lib/cmake/exiv2",
+        "Qt6LinguistTools_DIR": "C:/Qt/6.7.3/msvc2022_64/lib/cmake/Qt6LinguistTools"
+      }
+    }
+  ],
+  "buildPresets": [
+  {
+    "name": "Debug",
+    "configurePreset": "vs2022-multi-config",
+    "configuration": "Debug"
+  },
+  {
+    "name": "Release",
+    "configurePreset": "vs2022-multi-config",
+    "configuration": "Release"
+  },
+  {
+    "name": "RelWithDebInfo",
+    "configurePreset": "vs2022-multi-config",
+    "configuration": "RelWithDebInfo"
+  }
+  ]
+}
+
+**Note** Dynamic libraries (.dll) needed to resolve runtime functionalities shall be placed in a common location 
+on your main system drive. Add the path to your user/system environment variables PATH to allow Stellarium to 
+discover them during runtime.
+
+Open Visual Studio 2022. Continue without code.
+
+If you want to use a specific cmake.exe go to Tools -> Options, navigate to Cmake -> General and fill the appropriate
+checkbox and path. Otherwise VS 2022 will use it own cmake.exe tool. The path of an external cmake should be included
+in your system environment variables PATH as well.
+
+At this point you are ready to start the building process. Go to File -> Open -> Folder... and select <stel_dir>
+
+VS 2022 will automatically detect the CMakePresets.json file and start to configure the first Preset Configuration which
+is 'Debug'. You can follow the configuration process in the CMake Output Window. If successful (or with acceptable minor 
+errors) you can build this configuration by opening a Developer Command Prompt in VS 2022. Navigate to the <stel_dir> 
+and type:
+
+cmake --build --preset Debug
+
+**Note** : Do not use the top menu of VS 2022 (i.e. Build -> Build All). While this may work for this first build, eventually
+this sub-menu will disappear... a bug in VS 2022. Rely on the Developer Command Prompt for all builds and re-build.
+
+If the Debug build was successful, select from the Configuration dropdown menu of VS 2022, the next configuration specified in
+the CMakePresets.json file, i.e Release in this case.
+
+As soon as you will change this setting in the Configuration dropdown list, VS 2022 will start cmake to configure the build. 
+Then build by typing this command in the Developer Command Prompt:
+
+cmake --build --preset Release
+
+Redo the same process for the last build, i.e. RelWithDebInfo.
+
+cmake --build --preset RelWithDebInfo
+
+To run test suites (if ENABLE_TESTING = ON), use again the Developer Command Prompt. Navigate to <stel_dir>+"\build. 
+Then type one of these three commands:
+
+ctest -C Debug
+ctest -C Release
+ctest -C RelWithDebInfo
+
+Once all three builds are completed and unit testing is verified you can close the folder view and open the Stellarium Solution
+which is located here : stellarium/build/Stellarium.sln 
+
+File --> Close Folder
+File --> Open --> Project/Solution...
+
+Visual Studio 2022 should open Stellarium in Debug/x64 configuration. The Solution Explorer should display all the Stellarium projects. 
+Right click on the stellarium project to 'Set as Startup Project'. At this stage you are ready to further modify/rebuild the code, test and 
+run Stellarium, or any of the test cases projects listed in the Solution Explorer view, after selecting them as start-up project.
+
+Note: To work on the Release or RelWithDebInfo configuration first select it from the dropdown top menu of Visual Studio 2022.
+
+#### For Visual Studio 2026 (multi-configuration):
+
+You can also used this newly released version of Visual Studio (November 2025) to build and develop Stellarium. This release fixes the bug 
+of VS 2022 for the building steps and in a sense simplify the building process of Stellarium. Here are the changes to the process described
+above for Visual Studio 2022 (multi-configuration)
+
+Use a slightly different CMakePresets.json file, and adapt it to your development environment.
+
+<CMakePresets.json file example for VS 2026>
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "vs2026-multi-config",
+      "displayName": "Stellarium (VS2026 Multi-Config)",
+      "description": "Unified build tree for Debug, Release, and RelWithDebInfo using Visual Studio 2026",
+      "generator": "Visual Studio 18 2026",
+      "architecture": {
+        "value": "x64"
+      },
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release;RelWithDebInfo",
+	    "CMAKE_BUILD_TYPE": "Debug",
+	    "CMAKE_SUPPRESS_DEVELOPER_WARNINGS": "1",
+	    "CMAKE_PREFIX_PATH": "C:/Qt/6.7.3/msvc2022_64;C:/Dev/Libs/exiv2-0.28.7/lib/cmake/exiv2",
+        "QT_QMAKE_EXECUTABLE": "C:/Qt/6.7.3/msvc2022_64/bin/qmake.exe",
+        "ENABLE_SCRIPTING": "ON",
+        "ENABLE_GPS": "ON",
+        "ENABLE_TESTING": "ON",
+        "ENABLE_NLS": "ON",
+        "SCM_SHOULD_ENABLE_CONVERTER": "TRUE",
+        "GETTEXTPO_LIBRARY": "C:/Dev/Libs/gettextpo/lib/libgettextpo.lib",
+        "GETTEXTPO_INCLUDE_DIR": "C:/Dev/Libs/gettextpo/include",
+        "LIBTIDY_LIBRARY": "C:/Dev/Libs/libtidy/lib/libtidy.lib",
+        "LIBTIDY_INCLUDE_DIR": "C:/Dev/Libs/libtidy/include",
+        "EXIV2_LIBRARY": "C:/Dev/Libs/exiv2-0.28.7/lib/exiv2.lib",
+        "EXIV2_INCLUDE_DIR": "C:/Dev/Libs/exiv2-0.28.7/include",
+        "exiv2_DIR": "C:/Dev/Libs/exiv2-0.28.7/lib/cmake/exiv2",
+        "Qt6LinguistTools_DIR": "C:/Qt/6.7.3/msvc2022_64/lib/cmake/Qt6LinguistTools"
+      }
+    }
+  ],
+  "buildPresets": [
+  {
+    "name": "Debug",
+    "configurePreset": "vs2026-multi-config",
+    "configuration": "Debug"
+  },
+  {
+    "name": "Release",
+    "configurePreset": "vs2026-multi-config",
+    "configuration": "Release"
+  },
+  {
+    "name": "RelWithDebInfo",
+    "configurePreset": "vs2026-multi-config",
+    "configuration": "RelWithDebInfo"
+  }
+  ]
+}
+
+Note: To use 'Visual Studio 18 2026' generator, you need the latest version of CMake, version 4.2.0
+
+Open Visual Studio 2026. Open the Stellarium folder.
+
+File -> Open -> Folder... and select <stel_dir>
+
+VS 2026 will automatically detect the CMakePresets.json file and start to configure the first Preset Configuration which
+is 'Debug'. To build the Debug configuration, select Build --> Build All from the top menu of VS 2026. Building information should be 
+displayed in the Build Output window. If the Debug build was successful you should see the executable stellarium.exe generated in the 
+sub-directory <stel_dir>\build\src\Debug.
+
+If the Debug build was successful, select from the Configuration dropdown menu of VS 2026, the next configuration specified in
+the CMakePresets.json file, i.e Release in this case.  VS 2026 will start cmake to configure the build. Upon completion, to build the 
+Release configuration select Build --> Build All from the top menu of VS 2026. If the Release build was successful you should see the
+executable stellarium.exe generated in the sub-directory <stel_dir>\build\src\Release. Repeat the same steps for the RelWithDebInfo 
+configuration. If the RelWithDebInfo build was successful you should see the executable stellarium.exe generated in the 
+sub-directory <stel_dir>\build\src\RelWithDebInfo.
+
+Upon completion of the build process for all three configurations, you can close the folder and open the Stellarium solution, 
+the same way as it is described for VS 2022 above.
+
+
 ### Supported CMake parameters
 
 List of supported parameters (passed as `-DPARAMETER=VALUE`):
@@ -410,6 +629,7 @@ List of supported parameters (passed as `-DPARAMETER=VALUE`):
 | ENABLE_QT6                         | bool   | ON      | Enable building Qt6-based Stellarium
 | ENABLE_NLS                         | bool   | ON      | Enable interface translation
 | ENABLE_SHOWMYSKY                   | bool   | ON      | Enable support for ShowMySky module that implements a realistic atmosphere model
+| ENABLE_SPEECH                      | bool   | ON      | Enable speech output support. Requires Qt6.4+ and ENABLE_MEDIA
 | ENABLE_GPS                         | bool   | ON      | Enable GPS support
 | ENABLE_LIBGPS                      | bool   | ON      | Enable GPS support with libGPS library (N/A on Windows)
 | ENABLE_MEDIA                       | bool   | ON      | Enable sound and video support

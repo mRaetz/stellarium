@@ -18,7 +18,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: stellarium@googlegroups.com\n"
-"POT-Creation-Date: 2025-07-14 13:19+0700\n"
+"POT-Creation-Date: 2025-12-29 10:27+0700\n"
 "PO-Revision-Date: 2025-02-15 13:54+0000\n"
 "Last-Translator: 殳玮 孙 <itun@qq.com>, 2025\n"
 "Language-Team: Chinese (China) (https://app.transifex.com/stellarium/teams/80998/zh_CN/)\n"
@@ -1732,14 +1732,14 @@ msgstr "龙宫星"
 #: skycultures/translations.fab:762
 msgctxt "minor planet"
 msgid "Atira"
-msgstr "阿提娜星"
+msgstr "阿提拉星"
 
 #. TRANSLATORS: Asteroid (306367) Nut
 #. TRANSLATORS: https://en.wikipedia.org/wiki/306367_Nut
 #: skycultures/translations.fab:765
 msgctxt "minor planet"
 msgid "Nut"
-msgstr "穹神星"
+msgstr "努特星"
 
 #. TRANSLATORS: Asteroid (326290) Akhenaten
 #. TRANSLATORS: https://en.wikipedia.org/wiki/326290_Akhenaten
@@ -1778,7 +1778,7 @@ msgstr "共工星"
 #: skycultures/translations.fab:780
 msgctxt "scattered disc object"
 msgid "G!kun||'homdima"
-msgstr ""
+msgstr "雹神星"
 
 #. TRANSLATORS: Proper name of comet C/1680 V1
 #: skycultures/translations.fab:786
@@ -1800,7 +1800,7 @@ msgstr "开普勒超新星"
 
 #. TRANSLATORS: Name of supernova SN 1680A
 #. TRANSLATORS: https://en.wikipedia.org/wiki/Cassiopeia_A
-#: skycultures/translations.fab:803 nebulae/default/names.dat:1532
+#: skycultures/translations.fab:803 nebulae/default/names.dat:1534
 msgid "Cassiopeia A"
 msgstr "仙后座A"
 
@@ -2098,7 +2098,7 @@ msgstr "大衮 Dagon"
 #. TRANSLATORS: https://en.wikipedia.org/wiki/HD_104985
 #: skycultures/translations.fab:931 skycultures/common_star_names.fab:381
 msgid "Tonatiuh"
-msgstr "托纳季乌 Ogma"
+msgstr "大理增二 Tonatiuh"
 
 #. TRANSLATORS: Proper name of exoplanet HD 104985 b
 #. TRANSLATORS: https://en.wikipedia.org/wiki/HD_104985_b
@@ -2330,14 +2330,14 @@ msgstr "博卡普林斯 Bocaprins"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1042 skycultures/common_star_names.fab:108
 msgid "Bubup"
-msgstr "Bubup"
+msgstr "孩童 Bubup"
 
 #. TRANSLATORS: Proper name of exoplanet HD 38283 b
 #. TRANSLATORS: YanYan is the Boonwurrung word for boy.
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1046
 msgid "Yanyan"
-msgstr "Yanyan"
+msgstr "男孩 Yanyan"
 
 #. TRANSLATORS: Proper name of star HAT-P-14
 #. TRANSLATORS: Franz is a character in the movie 'Sissi' embodying an emperor
@@ -2364,7 +2364,7 @@ msgstr "茜茜 Sissi"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1058 skycultures/common_star_names.fab:229
 msgid "Mahsati"
-msgstr "Mahsati"
+msgstr "玛赫萨蒂 Mahsati"
 
 #. TRANSLATORS: Proper name of exoplanet HD 152581 b
 #. TRANSLATORS: Ganja is an ancient city of Azerbaijan, and is the birth place
@@ -2382,7 +2382,7 @@ msgstr "甘贾 Ganja"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1066 skycultures/common_star_names.fab:378
 msgid "Timir"
-msgstr "Timir"
+msgstr "黑暗 Timir"
 
 #. TRANSLATORS: Proper name of exoplanet HD 148427 b
 #. TRANSLATORS: Tondra means nap in Bengali language, alluding to the symbolic
@@ -2390,7 +2390,7 @@ msgstr "Timir"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1070
 msgid "Tondra"
-msgstr "Tondra"
+msgstr "打盹 Tondra"
 
 #. TRANSLATORS: Proper name of star HD 49674
 #. TRANSLATORS: Nervia, adapted from Nervii, was a prominent Belgian Celtic
@@ -2398,7 +2398,7 @@ msgstr "Tondra"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1074 skycultures/common_star_names.fab:276
 msgid "Nervia"
-msgstr "Nervia"
+msgstr "纳尔威亚 Nervia"
 
 #. TRANSLATORS: Proper name of exoplanet HD 49674 b
 #. TRANSLATORS: Eburonia, adapted from Eburones, was a prominent Belgian
@@ -2406,7 +2406,7 @@ msgstr "Nervia"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1078
 msgid "Eburonia"
-msgstr "Eburonia"
+msgstr "埃布罗尼亚 Eburonia"
 
 #. TRANSLATORS: Proper name of star HD 73534
 #. TRANSLATORS: Gakyid means happiness. Gross National Happiness is the
@@ -2415,7 +2415,7 @@ msgstr "Eburonia"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1082 skycultures/common_star_names.fab:169
 msgid "Gakyid"
-msgstr "Gakyid"
+msgstr "幸福 Gakyid"
 
 #. TRANSLATORS: Proper name of exoplanet HD 73534 b
 #. TRANSLATORS: Drukyul (land of the thunder dragon) is the native name for
@@ -2424,7 +2424,7 @@ msgstr "Gakyid"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1086
 msgid "Drukyul"
-msgstr "Drukyul"
+msgstr "竹域 Drukyul"
 
 #. TRANSLATORS: Proper name of star HD 63765
 #. TRANSLATORS: Tapecue means eternal path in Guarani and represents the Milky
@@ -2433,7 +2433,7 @@ msgstr "Drukyul"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1090 skycultures/common_star_names.fab:366
 msgid "Tapecue"
-msgstr "Tapecue"
+msgstr "永恒之路 Tapecue"
 
 #. TRANSLATORS: Proper name of exoplanet HD 63765 b
 #. TRANSLATORS: Yvaga means paradise for the Guarani and the Milky Way was
@@ -2476,7 +2476,7 @@ msgstr "图皮 Tupi"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1110
 msgid "Guarani"
-msgstr "Guarani"
+msgstr "瓜拉尼 Guarani"
 
 #. TRANSLATORS: Proper name of star HD 179949
 #. TRANSLATORS: Gumala is a Malay word, which means a magic bezoar stone found
@@ -2645,7 +2645,7 @@ msgstr "Poerava"
 #. TRANSLATORS: https://iau.org/news/pressreleases/detail/iau1912/
 #: skycultures/translations.fab:1190
 msgid "Pipitea"
-msgstr "Pipitea"
+msgstr "皮皮提亚 Pipitea"
 
 #. TRANSLATORS: Proper name of star WASP-17
 #. TRANSLATORS: Dìwö in Bribri language means the sun (bigger than the sun we
@@ -4914,7 +4914,7 @@ msgstr "遗迹星系"
 
 #: nebulae/default/names.dat:273
 msgid "Topsy Turvy Galaxy"
-msgstr "颠倒星系"
+msgstr "混乱星系"
 
 #: nebulae/default/names.dat:274
 msgid "Fornax A"
@@ -5361,7 +5361,7 @@ msgstr "双锥星团"
 
 #: nebulae/default/names.dat:394 nebulae/default/names.dat:397
 #: nebulae/default/names.dat:399 nebulae/default/names.dat:401
-#: nebulae/default/names.dat:1204 nebulae/default/names.dat:1550
+#: nebulae/default/names.dat:1204 nebulae/default/names.dat:1555
 msgid "Rosette Nebula"
 msgstr "玫瑰星云"
 
@@ -5765,11 +5765,11 @@ msgstr "纺锤星云"
 
 #: nebulae/default/names.dat:504
 msgid "Eight-Burst Planetary Nebula"
-msgstr "双环行星状星云"
+msgstr "八裂行星状星云"
 
 #: nebulae/default/names.dat:505
 msgid "Eight-Burst Nebula"
-msgstr "双环星云"
+msgstr "八裂星云"
 
 #: nebulae/default/names.dat:506 nebulae/default/names.dat:804
 msgid "Southern Ring Nebula"
@@ -6505,7 +6505,7 @@ msgstr "十字架星团"
 
 #: nebulae/default/names.dat:743
 msgid "Rim Nebula"
-msgstr "轮廓星云"
+msgstr "边缘星云"
 
 #: nebulae/default/names.dat:744
 msgid "Dragons of Ara"
@@ -7446,7 +7446,7 @@ msgstr "双子座A"
 msgid "Papillon"
 msgstr "蝴蝶犬星系"
 
-#: nebulae/default/names.dat:1015 nebulae/default/names.dat:1551
+#: nebulae/default/names.dat:1015 nebulae/default/names.dat:1556
 msgid "γ Cyg Nebula"
 msgstr "天津一星云"
 
@@ -7688,7 +7688,7 @@ msgstr "南积分号星系"
 msgid "Hourglass Region"
 msgstr "沙漏区域"
 
-#: nebulae/default/names.dat:1088 nebulae/default/names.dat:1573
+#: nebulae/default/names.dat:1088 nebulae/default/names.dat:1578
 msgid "Small Sagittarius Star Cloud"
 msgstr "人马座小恒星云"
 
@@ -7966,7 +7966,7 @@ msgstr "绿环星云"
 msgid "Little Cocoon Nebula"
 msgstr "小茧星云"
 
-#: nebulae/default/names.dat:1172 nebulae/default/names.dat:1576
+#: nebulae/default/names.dat:1172 nebulae/default/names.dat:1581
 msgid "Cygnus Star Cloud"
 msgstr "天鹅座恒星云"
 
@@ -8693,7 +8693,7 @@ msgstr "蜻蜓星系"
 msgid "Spiderweb Galaxy"
 msgstr "蜘蛛网星系"
 
-#: nebulae/default/names.dat:1384 nebulae/default/names.dat:1553
+#: nebulae/default/names.dat:1384 nebulae/default/names.dat:1558
 msgid "Boomerang Nebula"
 msgstr "回旋镖星云"
 
@@ -8903,7 +8903,7 @@ msgstr "棉花糖星云"
 
 #: nebulae/default/names.dat:1462
 msgid "Haufen A"
-msgstr "哈芬A星系群"
+msgstr "哈芬A星系团"
 
 #: nebulae/default/names.dat:1463
 msgid "Cetus Cluster"
@@ -9114,166 +9114,186 @@ msgid "Sagittarius A East"
 msgstr "人马座A东星"
 
 #: nebulae/default/names.dat:1529
+msgid "Kepler's supernova remnant"
+msgstr "开普勒超新星遗迹"
+
+#: nebulae/default/names.dat:1530
 msgid "Duck Redux"
 msgstr "新鸭超星系遗迹"
 
-#: nebulae/default/names.dat:1530
+#: nebulae/default/names.dat:1531
 msgid "Bird"
 msgstr "鸟状超新星遗迹"
 
-#: nebulae/default/names.dat:1531
+#: nebulae/default/names.dat:1532
 msgid "Manatee Nebula"
 msgstr "海牛星云"
 
-#: nebulae/default/names.dat:1534
+#: nebulae/default/names.dat:1533
+msgid "γ Cyg supernova remnant"
+msgstr "天津一超新星遗迹"
+
+#: nebulae/default/names.dat:1536
 msgid "Medulla Nebula"
 msgstr "脑髓星云"
 
-#: nebulae/default/names.dat:1537
+#: nebulae/default/names.dat:1539
+msgid "Calvera's supernova remnant"
+msgstr "卡尔韦拉超新星遗迹"
+
+#: nebulae/default/names.dat:1540
 msgid "Tycho's supernova remnant"
 msgstr "第谷超新星遗迹"
 
-#: nebulae/default/names.dat:1538
+#: nebulae/default/names.dat:1541
 msgid "Origem Loop"
 msgstr "原初环"
 
-#: nebulae/default/names.dat:1539
+#: nebulae/default/names.dat:1542
 msgid "Monogem Ring"
 msgstr "麒麟座戒指"
 
-#: nebulae/default/names.dat:1540
+#: nebulae/default/names.dat:1543
 msgid "Monoceros Nebula"
 msgstr "麒麟座星云"
 
-#: nebulae/default/names.dat:1541
+#: nebulae/default/names.dat:1544
 msgid "Monoceros Loop"
 msgstr "麒麟座圈"
 
-#: nebulae/default/names.dat:1542
+#: nebulae/default/names.dat:1545
+msgid "Hoinga"
+msgstr "霍因加超新星遗迹"
+
+#: nebulae/default/names.dat:1546
 msgid "Puppis A"
 msgstr "船尾座A"
 
-#: nebulae/default/names.dat:1543
-msgid "Vela SNR"
+#: nebulae/default/names.dat:1547
+msgid "Vela supernova remnant"
 msgstr "船帆座超新星遗迹"
 
-#: nebulae/default/names.dat:1544
+#: nebulae/default/names.dat:1548
 msgid "Vela XYZ"
 msgstr "船帆座 XYZ"
 
-#: nebulae/default/names.dat:1545
+#: nebulae/default/names.dat:1549
 msgid "Vela Junior"
 msgstr "船帆座幼年体"
 
-#: nebulae/default/names.dat:1546
+#: nebulae/default/names.dat:1550
 msgid "Frying Pan"
 msgstr "平底锅超新星遗迹"
 
-#: nebulae/default/names.dat:1547
+#: nebulae/default/names.dat:1551
+msgid "Lupus supernova remnant"
+msgstr "豺狼座超新星遗迹"
+
+#: nebulae/default/names.dat:1552
 msgid "Lupus Loop"
 msgstr "豺狼座圈"
 
-#: nebulae/default/names.dat:1548
+#: nebulae/default/names.dat:1553
 msgid "Tornado Nebula"
 msgstr "龙卷风星云"
 
-#: nebulae/default/names.dat:1549
+#: nebulae/default/names.dat:1554
 msgid "Square Nebula"
 msgstr "方形星云"
 
-#: nebulae/default/names.dat:1552
+#: nebulae/default/names.dat:1557
 msgid "Inverted Horseshoe Nebula"
 msgstr "倒马蹄星云"
 
-#: nebulae/default/names.dat:1554
+#: nebulae/default/names.dat:1559
 msgid "Propeller Nebula"
 msgstr "螺旋桨星云"
 
-#: nebulae/default/names.dat:1555
+#: nebulae/default/names.dat:1560
 msgid "Muscleman Cluster"
 msgstr "肌肉男星团"
 
-#: nebulae/default/names.dat:1556
+#: nebulae/default/names.dat:1561
 msgid "Pazmino's Cluster"
 msgstr "帕兹米诺星团"
 
-#: nebulae/default/names.dat:1557
+#: nebulae/default/names.dat:1562
 msgid "Calabash Nebula"
 msgstr "葫芦星云"
 
-#: nebulae/default/names.dat:1558
+#: nebulae/default/names.dat:1563
 msgid "Rotten Egg Nebula"
 msgstr "臭蛋星云"
 
-#: nebulae/default/names.dat:1559
+#: nebulae/default/names.dat:1564
 msgid "Frosty Leo Nebula"
 msgstr "霜狮星云"
 
-#: nebulae/default/names.dat:1560
+#: nebulae/default/names.dat:1565
 msgid "Gomez's Hamburger"
 msgstr "戈麦斯汉堡"
 
-#: nebulae/default/names.dat:1561
+#: nebulae/default/names.dat:1566
 msgid "Gomez Nebula"
 msgstr "戈麦斯星云"
 
-#: nebulae/default/names.dat:1562
+#: nebulae/default/names.dat:1567
 msgid "Footprint Nebula"
 msgstr "脚印星云"
 
-#: nebulae/default/names.dat:1563
+#: nebulae/default/names.dat:1568
 msgid "Minkowski's Footprint"
 msgstr "闵可夫斯基的足迹"
 
-#: nebulae/default/names.dat:1564
+#: nebulae/default/names.dat:1569
 msgid "Sagittarius A West"
 msgstr "人马座A西星"
 
-#: nebulae/default/names.dat:1565
+#: nebulae/default/names.dat:1570
 msgid "Minispiral in Gal Center"
 msgstr "银心微形螺旋结构"
 
-#: nebulae/default/names.dat:1566
+#: nebulae/default/names.dat:1571
 msgid "Dark Doodad Nebula"
 msgstr "暗饰带星云"
 
-#: nebulae/default/names.dat:1568
+#: nebulae/default/names.dat:1573
 msgid "Baade's Window"
 msgstr "巴德窗"
 
-#: nebulae/default/names.dat:1569
+#: nebulae/default/names.dat:1574
 msgid "Funnel Cloud Nebula"
 msgstr "漏斗星云"
 
-#: nebulae/default/names.dat:1570
+#: nebulae/default/names.dat:1575
 msgid "Northern Coalsack"
 msgstr "北煤袋星云"
 
-#: nebulae/default/names.dat:1571
+#: nebulae/default/names.dat:1576
 msgid "The Great Rift"
 msgstr "大暗隙"
 
-#: nebulae/default/names.dat:1572
+#: nebulae/default/names.dat:1577
 msgid "Scutum Star Cloud"
 msgstr "盾牌座恒星云"
 
-#: nebulae/default/names.dat:1574
+#: nebulae/default/names.dat:1579
 msgid "Patchy unnamed cloud"
 msgstr "无名斑驳云"
 
-#: nebulae/default/names.dat:1575
+#: nebulae/default/names.dat:1580
 msgid "Large Sagittarius Star Cloud"
 msgstr "人马座大恒星云"
 
-#: nebulae/default/names.dat:1577
+#: nebulae/default/names.dat:1582
 msgid "Dark Horse Nebula"
 msgstr "黑马星云"
 
-#: nebulae/default/names.dat:1578
+#: nebulae/default/names.dat:1583
 msgid "Prancing Horse Nebula"
 msgstr "跃马星云"
 
-#: nebulae/default/names.dat:1579
+#: nebulae/default/names.dat:1584
 msgid "Norma Star Cloud"
 msgstr "矩尺座恒星云"
 
@@ -9839,7 +9859,7 @@ msgstr "轸宿一 Gienah"
 
 #: skycultures/common_star_names.fab:172
 msgid "Ginan"
-msgstr "吉娜恩 Ginan"
+msgstr "十字架增一 Ginan"
 
 #: skycultures/common_star_names.fab:173
 msgid "Gomeisa"

@@ -26,14 +26,15 @@
 
 #include "ScmConstellationArtwork.hpp"
 #include "VecMath.hpp"
-#include "types/CoordinateLine.hpp"
-#include "types/StarLine.hpp"
-#include <StelCore.hpp>
+#include "types/ConstellationLine.hpp"
+#include "StelCore.hpp"
+#include "StelModuleMgr.hpp"
 #include <optional>
 #include <variant>
 #include <vector>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QObject>
 #include <QString>
 
 namespace scm
@@ -42,11 +43,13 @@ namespace scm
 class ScmConstellation
 {
 public:
-	ScmConstellation(const QString &id, const std::vector<CoordinateLine> &coordinates,
-	                 const std::vector<StarLine> &stars, const bool isDarkConstellation);
+	ScmConstellation(const QString &id, const std::vector<ConstellationLine> &lines, const bool isDarkConstellation);
 
 	/// The frame that is used for calculation and is drawn on.
 	static const StelCore::FrameType drawFrame = StelCore::FrameJ2000;
+
+	/// Whether the constellation should be drawn or not.
+	bool isHidden = false;
 
 	/**
     * @brief Gets the id of the constellation
@@ -112,6 +115,20 @@ public:
 	std::optional<QString> getIPA() const;
 
 	/**
+	* @brief Sets the description of the constellation.
+	* 
+	* @param description The description.
+	*/
+	void setDescription(const QString& description) { this->description = description; }
+
+	/**
+	 * @brief Gets the description of the constellation.
+	 * 
+	 * @return The description.
+	 */
+	QString getDescription() const { return description; }
+
+	/**
 	 * @brief Sets the artwork.
 	 * 
 	 * @param artwork The artwork.
@@ -126,41 +143,33 @@ public:
 	const ScmConstellationArtwork &getArtwork() const;
 
 	/**
-    * @brief Sets the coordinate lines and star lines of the constellation.
+    * @brief Sets the lines of the constellation.
     * 
-    * @param coordinates The coordinates of the constellation. 
-	* @param stars The equivalent stars to the coordinates.
+    * @param lines The lines of the constellation.
     */
-	void setConstellation(const std::vector<CoordinateLine> &coordinates, const std::vector<StarLine> &stars);
+	void setLines(const std::vector<ConstellationLine> &lines);
 
 	/**
-	 * @brief Gets the coordinates of the constellation.
+	 * @brief Gets the lines of the constellation.
 	 * 
-	 * @return The coordinates of the constellation.
+	 * @return The lines of the constellation.
 	 */
-	const std::vector<CoordinateLine> &getCoordinates() const;
+	const std::vector<ConstellationLine> &getLines() const;
 
 	/**
-	 * @brief Gets the stars of the constellation.
-	 * 
-	 * @return The stars of the constellation.
-	 */
-	const std::vector<StarLine> &getStars() const;
-
-	/**
-	 * @brief Draws the constellation based on the coordinates.
-	 *
-	 * @param core The core used for drawing.
-	 * @param color The color to use for drawing the constellation.
-	 */
-	void drawConstellation(StelCore *core, const Vec3f &lineColor, const Vec3f &labelColor) const;
-
-	/**
-	 * @brief Draws the constellation based on the coordinates using the default color.
+	 * @brief Draws the constellation lines, name and artwork using default colors.
 	 *
 	 * @param core The core used for drawing.
 	 */
-	void drawConstellation(StelCore *core) const;
+	void draw(StelCore *core) const;
+
+	/**
+	 * @brief Draws the constellation lines.
+	 * 
+	 * @param sPainter The painter used for drawing.
+	 * @param lineColor The color of the lines.
+	 */
+	void drawLines(StelPainter &sPainter, const Vec3f &lineColor) const;
 
 	/**
 	 * @brief Draws the label of the constellation.
@@ -169,23 +178,24 @@ public:
 	 * @param painter The painter used for drawing.
 	 * @param labelColor The color of the label.
 	 */
-	void drawNames(StelCore *core, StelPainter &painter, const Vec3f &labelColor) const;
+	void drawName(StelCore *core, StelPainter &painter, const Vec3f &labelColor) const;
 
 	/**
-	 * @brief Draws the label of the constellation using the default color.
+	 * @brief Draws the artwork of the constellation.
 	 * 
 	 * @param core The core used for drawing.
 	 * @param painter The painter used for drawing.
 	 */
-	void drawNames(StelCore *core, StelPainter &painter) const;
+	void drawArtwork(StelCore *core, StelPainter &painter) const;
 
 	/**
 	  * @brief Returns the constellation data as a JSON object.
 	  * 
 	  * @param skyCultureId The ID of the sky culture to which this constellation belongs.
+	  * @param mergeLines Whether to merge lines into polylines where possible.
 	  * @return QJsonObject 
 	  */
-	QJsonObject toJson(const QString &skyCultureId) const;
+	QJsonObject toJson(const QString &skyCultureId, const bool mergeLines) const;
 
 	/**
 	 * @brief Saves the artwork of this constellation, if art is attached, to the give filepath.
@@ -195,16 +205,6 @@ public:
 	 * @return false Failed to save.
 	 */
 	bool saveArtwork(const QString &directory);
-
-	/**
-	 * @brief Hides the constellation from being drawn.
-	 */
-	void hide();
-
-	/**
-	 * @brief Enables the constellation to be drawn.
-	 */
-	void show();
 
 	/** 
 	 * @brief Returns whether the constellation is a dark constellation.
@@ -232,11 +232,11 @@ private:
 	/// References to the sources of the name spellings
 	std::optional<QVector<int>> references;
 
-	/// List of coordinates forming the segments.
-	std::vector<CoordinateLine> coordinates;
+	/// The lines forming the constellation
+	std::vector<ConstellationLine> lines;
 
-	/// List of stars forming the segments. Might be empty.
-	std::vector<StarLine> stars;
+	/// A short description of the constellation that could be shown in e.g. an info block.
+	QString description;
 
 	/// Direction vector pointing on constellation name drawing position
 	Vec3d XYZname;
@@ -256,16 +256,38 @@ private:
 	/// Holds the path the artwork was saved to.
 	QString artworkPath;
 
-	/// Whether the constellation should be drawn or not.
-	bool isHidden = false;
-
 	/// Indicates if the constellation is a dark constellation.
 	bool isDarkConstellation = false;
+
+	/// The thickness of the constellation lines.
+	int constellationLineThickness = 1;
 
 	/**
 	 * @brief Updates the XYZname that is used for the text position.
 	 */
 	void updateTextPosition();
+
+	/**
+	 * @brief Merges individual star lines into polylines where possible.
+	 *
+	 * Merging is done in a two step process, where first the ends of lines are merged
+	 * with the starts of other lines if they match, and secondly the starts of lines are
+	 * merged with the ends of other lines if they match. The lines are processed in the order
+	 * they have been drawn. However, lines which point to opposite directions are not merged.
+	 * 
+	 * Example:
+	 * 
+	 * Input 1: [[1,2], [2,3], [0,1]]
+	 * 
+	 * Output 1: [[0,1,2,3]]
+	 * 
+	 * Input 2: [[1,2], [2,3], [1,0]]
+	 * 
+	 * Output 2: [[1,2,3], [1,0]]
+	 *
+	 * @param lines The individual star lines to merge.
+	 */
+	void mergeLinesIntoPolylines(QJsonArray &lines) const;
 };
 
 } // namespace scm

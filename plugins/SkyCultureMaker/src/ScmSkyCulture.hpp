@@ -24,18 +24,20 @@
 #ifndef SCM_SKYCULTURE_HPP
 #define SCM_SKYCULTURE_HPP
 
-#include <QString>
-#include <optional>
-
 #include "ScmConstellation.hpp"
 #include "StelCore.hpp"
 #include "StelSkyCultureMgr.hpp"
 #include "types/Classification.hpp"
-#include "types/CoordinateLine.hpp"
 #include "types/CulturePolygon.hpp"
+#include "types/ConstellationLine.hpp"
 #include "types/Description.hpp"
 #include "types/License.hpp"
-#include "types/StarLine.hpp"
+#include <memory>
+#include <vector>
+#include <QFile>
+#include <QJsonObject>
+#include <QObject>
+#include <QString>
 
 namespace scm
 {
@@ -55,16 +57,17 @@ public:
 	void setStartTime(int startTime);
 
 	/// Sets the end time of the sky culture
-	void setEndTime(int endTime);
+	void setEndTime(const QString &endTime);
 
 	/// Sets whether to show common names in addition to the culture-specific ones
 	void setFallbackToInternationalNames(bool fallback);
 
 	/// Adds a constellation to the sky culture
-	ScmConstellation &addConstellation(const QString &id, const std::vector<CoordinateLine> &coordinates,
-	                                   const std::vector<StarLine> &stars, const bool isDarkConstellation);
+	ScmConstellation &addConstellation(const QString &id, 
+									   const std::vector<ConstellationLine> &lines, 
+									   const bool isDarkConstellation);
 
-	/// Adds a constellation to the sky culture
+	/// Adds a location to the sky culture
 	void addLocation(const scm::CulturePolygon &polygon);
 
 	/// Removes a constellation from the sky culture by its ID
@@ -77,12 +80,16 @@ public:
 	ScmConstellation *getConstellation(const QString &id);
 
 	/// Returns a pointer to the constellations of the sky culture
-	std::vector<ScmConstellation> *getConstellations();
+	/// Constellations are held as unique pointers, so the addresses
+	/// of the constellation objects remain valid even if the vector is modified.
+	std::vector<std::unique_ptr<ScmConstellation>> *getConstellations();
 
 	/**
 	* @brief Returns the sky culture as a JSON object
+	*
+	* @param mergeLines Whether to merge the lines of the constellations into polylines where possible.
 	*/
-	QJsonObject getIndexJson() const;
+	QJsonObject toJson(const bool mergeLines) const;
 
 	/**
 	* @brief Returns the territory of the sky culture as a JSON object
@@ -116,6 +123,11 @@ public:
 	 */
 	bool saveIllustrations(const QString &directory);
 
+	/**
+	* @brief Checks whether the polygons of locations overlap and merges them if necessary
+	*/
+	void mergeLocations();
+
 private:
 	/// Sky culture identifier
 	QString id;
@@ -124,7 +136,7 @@ private:
 	bool fallbackToInternationalNames = false;
 
 	/// The constellations of the sky culture
-	std::vector<ScmConstellation> constellations;
+	std::vector<std::unique_ptr<ScmConstellation>> constellations;
 
 	/// The description of the sky culture
 	scm::Description description;
@@ -136,7 +148,8 @@ private:
 	int startTime;
 
 	/// The latest year associated with a territory of the sky culture
-	int endTime;
+	// (represented as QString because culture can still exist)
+	QString endTime;
 };
 
 } // namespace scm

@@ -106,7 +106,7 @@ public:
 	//! Earliest available year
 	int startTime;
 	//! Latest available year
-	int endTime;
+	QString endTime;
 	//! Type of the boundaries
 	BoundariesType boundariesType;
 	//! JSON data describing the constellations (names, lines, artwork)
@@ -231,7 +231,13 @@ public slots:
 	//! Returns a localized HTML description for the current sky culture.
 	//! @return a HTML description of the current sky culture, suitable for display
 	QString getCurrentSkyCultureHtmlDescription();
-	
+	//! Returns a localized narration text for the current sky culture.
+	//! @return a plaintext description of the current sky culture, suitable for narration
+	//! This only includes the text before section "## Constellations".
+	//! The Constellation texts are narrated one-by-one when selected,
+	//! and references/authors/license are likely nothing of so great interest.
+	QString getCurrentSkyCultureNarration();
+
 	//! Get the default sky culture ID
 	QString getDefaultSkyCultureID() {return defaultSkyCultureID;}
 	//! Set the default sky culture from the ID.
@@ -253,7 +259,7 @@ public slots:
 
 	//! Get a map of sky culture names in the current language and the corresponding time limits.
 	//! @return A map of translated sky culture names and the corresponding time limits.
-	QMap<QString, QPair<int, int>> getSkyCultureTimeLimitMapI18(void) const;
+	QMap<QString, QPair<int, QString> > getSkyCultureTimeLimitMapI18(void) const;
 
 	//! Get a list of sky culture IDs
 	QStringList getSkyCultureListIDs(void) const;
@@ -317,10 +323,8 @@ public slots:
 	//! Returns whether current skyculture uses (incorporates) common names.
 	bool currentSkycultureUsesCommonNames() const;
 
-#if QT_VERSION_MAJOR >= 6
 	//! Debugging/developing function. Call via scripting.
 	void analyzeScreenLabel() const;
-#endif
 signals:
 	//! Emitted whenever the default sky culture changed.
 	//! @see setDefaultSkyCultureID
@@ -371,8 +375,13 @@ private:
 	QString skyCultureI18ToDirectory(const QString& cultureName) const;
 
 	QString descriptionMarkdownToHTML(const QString& markdown, const QString& descrPath);
+	QString descriptionMarkdownToNarration(const QString& markdown, const QString& descrPath);
+	// We don't use QHash/QMap because we want to preserve order of constellations as listed in the description file
+	std::vector<std::pair<QString/*constellation*/, QString/*description*/>> getConstellationsDescriptions(QString consSection) const;
 	QString convertMarkdownLevel2Section(const QString& markdown, const QString& sectionName,
 	                                     qsizetype bodyStartPos, qsizetype bodyEndPos, const StelTranslator& trans);
+	QString convertMarkdownLevel2SectionNarration(const QString& markdown, const QString& sectionName,
+					     qsizetype bodyStartPos, qsizetype bodyEndPos, const StelTranslator& trans);
 	std::pair<QString/*color*/,QString/*info*/> getLicenseDescription(const QString& license, const bool singleLicenseForAll) const;
 
 	QMap<QString, StelSkyCulture> dirToNameEnglish;
@@ -387,6 +396,15 @@ private:
 	//! Replace any detailed cultural label by the short label (from constellation ID)
 	//! This should be a short string, some skycultures still have numerical IDs here.
 	bool flagUseAbbreviatedNames;
+
+public:
+	//! Convert input in Markdown style to formatted HTML
+	static QString markdownToHTML(QString input);
+private:
+	//! Restyle a few style annotations
+	static void applyStyleToMarkdown(QString& string);
+	//! convert numerical citations from [#n] style to HTML superscript style
+	static QString convertReferenceLinks(QString text);
 };
 
 #endif // STELSKYCULTUREMGR_HPP

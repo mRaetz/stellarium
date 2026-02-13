@@ -1,6 +1,6 @@
 ## LICENSE
 ```
-   Copyright (C) 2004-2025 Fabien Chereau et al.
+   Copyright (C) 2004-2026 Fabien Chereau et al.
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License
@@ -311,8 +311,8 @@
 	4.3n Bennu map is created by NASA from OSIRIS-REx spacecraft data. Public domain.
 	     Full size mosaic: https://www.asteroidmission.org/bennu_global_mosaic/
 	4.3o The Sun map was created by Ruslan Kabatsayev from the images taken by SDO HMI.
-	     The map is under the GNU General Public License, version 2 or any later
-	     version.
+	     The map is under the Creative Commons Attribution-ShareAlike 4.0 International
+	     license.
 	4.4 The fullsky milky way panorama is created by Axel Mellinger,
 	    University of Potsdam, Germany. Further information and more
 	    pictures available from

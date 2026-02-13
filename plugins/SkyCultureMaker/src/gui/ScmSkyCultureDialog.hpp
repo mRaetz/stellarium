@@ -44,6 +44,7 @@ class ScmSkyCultureDialog : public StelDialogSeparate
 {
 protected:
 	void createDialogContent() override;
+	bool eventFilter(QObject *obj, QEvent *event) override;
 
 public:
 	ScmSkyCultureDialog(SkyCultureMaker *maker);
@@ -54,7 +55,7 @@ public:
 	 *
 	 * @param constellations The vector of constellations to be set.
 	 */
-	void setConstellations(std::vector<scm::ScmConstellation> *constellations);
+	void setConstellations(std::vector<std::unique_ptr<scm::ScmConstellation>> *constellations);
 
 	/**
 	 * @brief Resets the constellations to an empty vector.
@@ -88,17 +89,19 @@ private slots:
 	void updateEditConstellationButton();
 	void updateRemoveConstellationButton();
 	void updateRemovePolygonButton();
+	void updateEditPolygonButton();
 	void saveLicense();
 	void updateSkyCultureTimeValue(int year);
 	void addLocation(const scm::CulturePolygon polygon);
-	void removeLocation();
-	void selectLocation(QTreeWidgetItem *item, int column);
+	void removeSelectedLocation();
+	void editSelectedLocation();
+	void saveLocationChanges();
+	void discardLocationChanges();
+	void selectLocation(QTreeWidgetItem *item);
 	void showAddPolygon();
 	void hideAddPolygon();
 	void confirmAddPolygon();
 	void cancelAddPolygon();
-	void changeStartTime();
-	void changeEndTime();
 	void checkMutExRegions(const QStringList checkedItems);
 
 private:
@@ -109,7 +112,19 @@ private:
 	QString name = "";
 
 	/// The vector of constellations to be displayed in the dialog.
-	std::vector<scm::ScmConstellation> *constellations = nullptr;
+	std::vector<std::unique_ptr<scm::ScmConstellation>> *constellations = nullptr;
+
+	/// Help text on how to digitize polygons in the map.
+	const QString mapToolTip = q_(
+		"Controls:\n"
+		"LMB / RMB: Set a new vertex for the active polygon\n"
+		"SHIFT + LMB / MMB: Navigate the Map\n"
+		"ALT + LMB / RMB: Save the active polygon\n"
+		"DELETE: Remove the last point of the active polygon\n"
+		"ESC: Remove all points of the active polygon\n"
+		"Scroll UP / DOWN: Zoom in / out of the map\n"
+		"CTRL + Scroll: Fine grained zoom"
+		);
 
 	/**
 	 * @brief Gets the display name from a constellation.
@@ -127,6 +142,46 @@ private:
 	void setIdFromName(QString &name);
 
 	/**
+	 * @brief Compiles the Constellations section from descriptions of all constellations.
+	 */
+	QString makeConstellationsSection() const;
+
+	/**
+	 * @brief Clears the references list and resets the helper buttons.
+	 */
+	void resetReferences();
+
+	/**
+	 * @brief Adds a new reference to the list and initiates editing it.
+	 */
+	void addNewReference();
+
+	/**
+	 * @brief Removes selected reference from the list.
+	 */
+	void removeReference();
+
+	/**
+	 * @brief Updates states of the buttons controlling the references list.
+	 */
+	void updateReferencesButtons();
+
+	/**
+	 * @brief Moves the selected reference above the previous reference, renumerating all references.
+	 */
+	void moveCurrentReferenceUp();
+
+	/**
+	 * @brief Moves the selected reference below the next reference, renumerating all references.
+	 */
+	void moveCurrentReferenceDown();
+
+	/**
+	 * @brief Updates reference numbers as shown in the list.
+	 */
+	void updateReferencesNumeration();
+
+	/**
 	 * @brief Gets the description from the text edit.
 	 *
 	 * @return The description from the text edit.
@@ -134,22 +189,21 @@ private:
 	scm::Description getDescriptionFromTextEdit() const;
 
 	/**
+	 * @brief Compiles the References section from all the references in the list.
+	 */
+	QString makeReferencesSection() const;
+
+	/**
+	 * @brief Opens the constellation dialog with data for a given constellation.
+	 * @param constellationId The ID of the constellation to open the dialog for.
+	 */
+	void openConstellationDialog(const QString &constellationId);
+
+	/**
 	 * @brief Initialize the time of the map, slider and spinboxes.
 	 *
 	 */
-	void initSkycultureTime();
-
-	/**
-	 * @brief Set the value of the startTimeSpinbox.
-	 *
-	 */
-	void addPolygonSetStartTime(int Year);
-
-	/**
-	 * @brief Set the limits of the startTimeSpinBox and endTimeSpinBox.
-	 *
-	 */
-	void addPolygonSetTimeLimits(int minYear, int maxYear);
+	void initSkyCultureTime();
 };
 
 #endif // SCM_SKY_CULTURE_DIALOG_HPP
