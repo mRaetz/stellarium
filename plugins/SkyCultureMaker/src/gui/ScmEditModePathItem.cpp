@@ -33,7 +33,6 @@ ScmEditModePathItem::ScmEditModePathItem(int edgeID)
 void ScmEditModePathItem::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 {
 	setPen(QPen(QColor(0, 0, 255), 2));
-	//setBrush(QBrush());
 	QGraphicsPathItem::hoverEnterEvent(event);
 }
 
@@ -60,8 +59,6 @@ bool ScmEditModePathItem::existsAtPointInTime(int year) const
 
 QVariant ScmEditModePathItem::itemChange(QGraphicsItem::GraphicsItemChange change, const QVariant &value)
 {
-	// prevent de-selection when hiding the item
-
 	if (change == QGraphicsItem::ItemVisibleChange)
 	{
 		setPen(QPen(QColor(255, 0, 0), 1));

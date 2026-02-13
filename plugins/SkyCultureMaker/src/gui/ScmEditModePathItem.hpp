@@ -35,7 +35,6 @@ public:
 	int getEdgeID() const {return edgeID;}
 	bool existsAtPointInTime(int year) const;
 	void setPosition(const QPointF &pos);
-	//void setSize();
 
 public slots:
 

@@ -33,7 +33,6 @@ ScmEditModeEllipseItem::ScmEditModeEllipseItem(int vertexID)
 void ScmEditModeEllipseItem::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 {
 	setPen(QPen(QColor(0, 0, 255), 2));
-	//setBrush(QBrush());
 	QGraphicsEllipseItem::hoverEnterEvent(event);
 }
 
@@ -55,8 +54,6 @@ bool ScmEditModeEllipseItem::existsAtPointInTime(int year) const
 
 QVariant ScmEditModeEllipseItem::itemChange(QGraphicsItem::GraphicsItemChange change, const QVariant &value)
 {
-	// prevent de-selection when hiding the item
-
 	if (change == QGraphicsItem::ItemVisibleChange)
 	{
 		setPen(QPen(QColor(255, 0, 0), 1));

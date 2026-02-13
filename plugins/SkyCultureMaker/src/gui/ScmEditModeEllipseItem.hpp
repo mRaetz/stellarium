@@ -35,7 +35,6 @@ public:
 	int getVertexID() const {return vertexID;}
 	bool existsAtPointInTime(int year) const;
 	void setPosition(const QPointF &pos);
-	//void setSize();
 
 public slots:
 
